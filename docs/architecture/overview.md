@@ -29,6 +29,8 @@ This allows FlowCortex to scale payments without scaling coordination.
 
 FlowCortex is organized into **orthogonal layers**, each with a clear responsibility.
 
+![FlowCortex Architecture Overview](/docs/assets/flowcortex.architecture.overview.png)
+
 
 Each layer can evolve independently without breaking the others.
 
