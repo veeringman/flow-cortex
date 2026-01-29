@@ -31,7 +31,7 @@ FlowCortex is organized into **orthogonal layers**, each with a clear responsibi
 
 ![FlowCortex Architecture Overview](/docs/assets/flowcortex.architecture.overview.png)
 
-
+*Figure 1: FlowCortex layered architecture with ProofCortex at the core*
 Each layer can evolve independently without breaking the others.
 
 ---
