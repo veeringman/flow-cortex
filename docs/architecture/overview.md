@@ -28,10 +28,10 @@ This allows FlowCortex to scale payments without scaling coordination.
 ## 2. Layered Architecture
 
 FlowCortex is organized into **orthogonal layers**, each with a clear responsibility.
-
 ![FlowCortex Architecture Overview](/docs/assets/flowcortex.architecture.overview.png)
 
 *Figure 1: FlowCortex layered architecture with ProofCortex at the core*
+
 Each layer can evolve independently without breaking the others.
 
 ---
