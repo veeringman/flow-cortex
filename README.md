@@ -164,3 +164,7 @@ Code will follow once core invariants are locked.
 
 ## Repository Structure (Planned)
 
+> Note:
+> Directories under `crates/` represent compile-time Rust units.
+> Directories under the project root represent runtime, operational,
+> or conceptual system domains. Names may overlap by design.
