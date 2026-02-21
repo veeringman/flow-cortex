@@ -1,5 +1,4 @@
 use crate::rpc::SharedNode;
-use std::sync::{Arc, Mutex};
 use tokio::time::{self, Duration};
 
 /// Start a very simple block producer that periodically takes whatever is

@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// A simple identifier for accounts. For this prototype we use strings.
 pub type AccountId = String;
@@ -28,8 +27,11 @@ pub struct ReadWriteSet {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QCTProof(pub Vec<u8>);
 
-/// Two basic kinds of actions supported by the chain.  Future extensions (e.g.
-/// smart contract calls) would be added here.
+/// A transaction type indicating what state transition should occur.
+/// Previously we only supported mint/transfer; we now add capsule-related
+/// actions so that the ledger/history can record uploads and executes as part
+/// of the chain. Additional variants support proof anchoring and future
+/// stablecoin/exchange operations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransactionKind {
     /// Mint tokens (caller must be admin)
@@ -44,6 +46,31 @@ pub enum TransactionKind {
         to: AccountId,
         token: Token,
         amount: u64,
+    },
+    /// Store a WASM capsule in the node's registry
+    UploadCapsule {
+        id: String,
+        /// binary code of the module; serialized as base64 by serde
+        code: Vec<u8>,
+    },
+    /// Execute a stored capsule; `input` is opaque bytes passed to the module
+    ExecuteCapsule {
+        id: String,
+        input: Vec<u8>,
+    },
+    /// Anchor a cryptographic or ZKP proof on the chain. The `id` can be used
+    /// later to query or verify inclusion.
+    AnchorProof {
+        id: String,
+        proof: Vec<u8>,
+    },
+    /// Placeholder for future trade/buy‑sell operations between Proof and
+    /// FloweR tokens; smart contract logic may be provided by capsules.
+    Trade {
+        from: AccountId,
+        to: AccountId,
+        proof_amount: u64,
+        flower_amount: u64,
     },
 }
 
@@ -77,4 +104,29 @@ pub enum LedgerError {
     Conflict,
     #[error("only admin can mint tokens")]
     UnauthorizedMint,
+    #[error("capsule error: {0}")]
+    CapsuleError(String),
+    #[error("invalid transaction signature")]
+    InvalidSignature,
+}
+
+// allow converting a string into a LedgerError for convenience
+impl From<String> for LedgerError {
+    fn from(s: String) -> Self {
+        LedgerError::CapsuleError(s)
+    }
+}
+
+/// Public key type for wallet authentication (raw bytes of an ed25519 key).
+pub type PubKey = Vec<u8>;
+
+/// Marshalled transaction together with an explicit signature.  The ledger
+/// verifies that the signature is valid for the `caller` and corresponding
+/// public key before applying the transaction.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SignedTransaction {
+    pub caller: AccountId,
+    pub pubkey: PubKey,
+    pub signature: Vec<u8>,
+    pub tx: Transaction,
 }

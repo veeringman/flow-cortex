@@ -2,8 +2,12 @@
 name = "flowcortex-l1"
 version = "0.1.0"
 edition = "2024"
+build = "build.rs"
 
 [dependencies]
+[build-dependencies]
+tonic-build = "0.9"
+protoc-bin-vendored = "0.11"
 # asynchronous runtime and web framework
 tokio = { version = "1.49.0", features = ["rt", "rt-multi-thread", "macros"] }
 axum = "0.8"
@@ -13,9 +17,19 @@ thiserror = "1.0"
 # cryptographic utilities used by QCT stub
 sha2 = "0.10"
 hex = "0.4"
+# WASM runtime for deterministic execution of Capsules
+wasmtime = "13"
+base64 = "0.21"
+
+# cryptography for wallet authentication
+ed25519-dalek = "1"
 
 # HTTP utilities (CORS middleware)
 tower-http = { version = "0.3", features = ["cors", "set-header"] }
+
+# gRPC support
+tonic = { version = "0.9", features = ["transport"] }
+prost = "0.11"
 
 # we use hyper::Server in the binary
 

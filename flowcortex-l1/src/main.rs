@@ -31,6 +31,18 @@ async fn main() {
 
     let app = make_router(node.clone());
 
+    // also start gRPC server on separate port (default 50051)
+    let grpc_addr: std::net::SocketAddr = std::env::var("GRPC_ADDR")
+        .unwrap_or_else(|_| "0.0.0.0:50051".to_string())
+        .parse()
+        .expect("invalid GRPC_ADDR");
+    let grpc_node = node.clone();
+    tokio::spawn(async move {
+        println!("gRPC service listening on {}", grpc_addr);
+        if let Err(e) = flowcortex_l1::grpc::serve_grpc(grpc_node, grpc_addr).await {
+            eprintln!("gRPC server error: {}", e);
+        }
+    });
 
     println!("L1 node running with admin='{}'", admin);
     // determine bind address (allow override via BIND_ADDR env var)

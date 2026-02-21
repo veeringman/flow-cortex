@@ -13,6 +13,7 @@ use axum::body::Body;
 use axum::response::Response;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
+use base64::Engine;
 
 /// Shared application state for handlers
 pub type SharedNode = Arc<Mutex<Node>>;
@@ -72,6 +73,29 @@ struct PoolResponse {
 #[derive(Serialize)]
 struct SnapshotResponse {
     root: String,
+}
+
+#[derive(Deserialize)]
+struct CapsuleUploadRequest {
+    id: String,
+    /// Base64-encoded WASM module
+    code: String,
+}
+
+#[derive(Deserialize)]
+struct CapsuleInvokeRequest {
+    /// opaque input bytes, base64 encoded
+    input: String,
+}
+
+#[derive(Serialize)]
+struct CapsuleListResponse {
+    capsules: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct CapsuleInvokeResponse {
+    output: String,
 }
 
 async fn create_account(
@@ -175,6 +199,55 @@ async fn get_pool(Extension(node): Extension<SharedNode>) -> impl IntoResponse {
     })
 }
 
+#[derive(Deserialize)]
+struct TxRequest {
+    caller: String,
+    pubkey: Vec<u8>,
+    signature: Vec<u8>,
+    tx: crate::types::Transaction,
+}
+
+async fn submit_tx(
+    Extension(node): Extension<SharedNode>,
+    Json(req): Json<TxRequest>,
+) -> impl IntoResponse {
+    let stx = crate::types::SignedTransaction {
+        caller: req.caller,
+        pubkey: req.pubkey,
+        signature: req.signature,
+        tx: req.tx,
+    };
+    let mut n = node.lock().unwrap();
+    match n.submit_signed_transaction(stx) {
+        Ok(()) => StatusCode::CREATED.into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse { error: e.to_string() }),
+        )
+            .into_response(),
+    }
+}
+
+async fn list_anchors(Extension(node): Extension<SharedNode>) -> impl IntoResponse {
+    let n = node.lock().unwrap();
+    let ids: Vec<String> = n.anchors.keys().cloned().collect();
+    Json(serde_json::json!({"anchors": ids}))
+}
+
+async fn get_anchor(
+    Path(id): Path<String>,
+    Extension(node): Extension<SharedNode>,
+) -> impl IntoResponse {
+    let n = node.lock().unwrap();
+    let resp = if let Some(data) = n.anchors.get(&id) {
+        let val = serde_json::json!({"id": id, "proof": base64::engine::general_purpose::STANDARD.encode(data)});
+        Json(val).into_response()
+    } else {
+        (StatusCode::NOT_FOUND, Json(ErrorResponse { error: "not found".into() })).into_response()
+    };
+    resp
+}
+
 async fn create_block(Extension(node): Extension<SharedNode>) -> impl IntoResponse {
     let mut n = node.lock().unwrap();
     let block = n.create_block();
@@ -203,6 +276,69 @@ async fn snapshot(Extension(node): Extension<SharedNode>) -> impl IntoResponse {
     Json(SnapshotResponse { root: hex::encode(&n.snapshot_root) })
 }
 
+async fn upload_capsule(
+    Extension(node): Extension<SharedNode>,
+    Json(req): Json<CapsuleUploadRequest>,
+) -> impl IntoResponse {
+    // decode using the new Engine API
+    use base64::engine::general_purpose::STANDARD;
+    let code = match STANDARD.decode(&req.code) {
+        Ok(c) => c,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse { error: e.to_string() }),
+            )
+                .into_response();
+        }
+    };
+    let mut n = node.lock().unwrap();
+    match n.store_capsule(&req.id, code) {
+        Ok(()) => StatusCode::CREATED.into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse { error: e.to_string() }),
+        )
+            .into_response(),
+    }
+}
+
+async fn list_capsules(Extension(node): Extension<SharedNode>) -> impl IntoResponse {
+    let n = node.lock().unwrap();
+    let ids: Vec<String> = n.capsules.keys().cloned().collect();
+    Json(CapsuleListResponse { capsules: ids })
+}
+
+async fn invoke_capsule(
+    Path(id): Path<String>,
+    Extension(node): Extension<SharedNode>,
+    Json(req): Json<CapsuleInvokeRequest>,
+) -> impl IntoResponse {
+    use base64::engine::general_purpose::STANDARD;
+    let input = match STANDARD.decode(&req.input) {
+        Ok(i) => i,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse { error: e.to_string() }),
+            )
+                .into_response();
+        }
+    };
+    let n = node.lock().unwrap();
+    match n.execute_capsule(&id, &input) {
+        Ok(output) => {
+            let encoded = STANDARD.encode(&output);
+            Json(CapsuleInvokeResponse { output: encoded }).into_response()
+        }
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse { error: e }),
+        )
+            .into_response(),
+    }
+}
+
 /// Build the router for the RPC server.
 pub fn make_router(node: SharedNode) -> Router {
     // middleware to inject permissive CORS headers
@@ -224,6 +360,15 @@ pub fn make_router(node: SharedNode) -> Router {
         .route("/block", post(create_block))
         .route("/blocks", get(list_blocks))
         .route("/snapshot", get(snapshot))
+        // generic transaction submission
+        .route("/tx", post(submit_tx))
+        // anchor queries
+        .route("/anchors", get(list_anchors))
+        .route("/anchor/{id}", get(get_anchor))
+        // capsule management
+        .route("/capsule", post(upload_capsule))
+        .route("/capsule", get(list_capsules))
+        .route("/capsule/{id}/invoke", post(invoke_capsule))
         .layer(middleware::from_fn(cors))
         .layer(Extension(node))
 }

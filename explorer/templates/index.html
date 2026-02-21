@@ -5,6 +5,8 @@
     <title>FlowCortex Explorer</title>
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- lightweight ed25519 library for wallet signing -->
+    <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl.min.js"></script>
     <style>
         /* add a simple dark mode toggle class for body */
         .dark body { background-color: #1a202c; color: #edf2f7; }
@@ -35,6 +37,53 @@
             <section class="bg-gray-100 dark:bg-gray-800 p-4 rounded shadow">
                 <h2 class="text-xl font-semibold mb-2">Snapshot</h2>
                 <button onclick="snapshot()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Refresh</button>
+            </section>
+            <!-- Capsules section -->
+            <section class="bg-gray-100 dark:bg-gray-800 p-4 rounded shadow">
+                <h2 class="text-xl font-semibold mb-2">Wallet / Transactions</h2>
+                <p class="mb-2">For demo purposes you can paste an ed25519 keypair here and sign raw tx JSON.</p>
+                <div class="mb-2">
+                    <input type="text" id="pubkey" placeholder="public key (hex)" class="border rounded p-2 mr-2 w-1/3" />
+                    <input type="text" id="privkey" placeholder="private key (hex)" class="border rounded p-2 mr-2 w-1/3" />
+                    <button onclick="connectWallet()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Connect</button>
+                </div>
+                <textarea id="txJson" placeholder="transaction JSON" class="border rounded p-2 mr-2 w-full h-32"></textarea>
+                <div class="mt-2">
+                    <button onclick="signAndSubmit()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Sign &amp; Submit TX</button>
+                </div>
+            </section>
+            <!-- Anchors section -->
+            <section class="bg-gray-100 dark:bg-gray-800 p-4 rounded shadow">
+                <h2 class="text-xl font-semibold mb-2">Anchors</h2>
+                <div class="mb-2">
+                    <input type="text" id="anchorId" placeholder="anchor id" class="border rounded p-2 mr-2 w-1/4" />
+                    <textarea id="anchorProof" placeholder="proof (base64)" class="border rounded p-2 mr-2 w-2/3 h-24"></textarea>
+                    <button onclick="anchor()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Anchor</button>
+                </div>
+                <div class="mb-2">
+                    <button onclick="listAnchors()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">List Anchors</button>
+                </div>
+                <div class="mb-2">
+                    <input type="text" id="getAnchorId" placeholder="id to fetch" class="border rounded p-2 mr-2 w-1/4" />
+                    <button onclick="getAnchor()" class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">Get Anchor</button>
+                </div>
+            </section>
+            <!-- Capsules section -->
+            <section class="bg-gray-100 dark:bg-gray-800 p-4 rounded shadow">
+                <h2 class="text-xl font-semibold mb-2">Capsules</h2>
+                <div class="mb-2">
+                    <input type="text" id="capsuleId" placeholder="id" class="border rounded p-2 mr-2 w-1/4" />
+                    <textarea id="capsuleCode" placeholder="base64 WASM" class="border rounded p-2 mr-2 w-2/3 h-24"></textarea>
+                    <button onclick="uploadCapsule()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Upload</button>
+                </div>
+                <div class="mb-2">
+                    <button onclick="listCapsules()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">List</button>
+                </div>
+                <div class="mb-2">
+                    <input type="text" id="invokeId" placeholder="id to invoke" class="border rounded p-2 mr-2 w-1/4" />
+                    <input type="text" id="invokeInput" placeholder="input (base64)" class="border rounded p-2 mr-2 w-1/3" />
+                    <button onclick="invokeCapsule()" class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">Invoke</button>
+                </div>
             </section>
         </div>
         <div id="output" class="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded font-mono overflow-auto"></div>
@@ -70,10 +119,108 @@
             output(await res.json());
         }
 
+        // capsule-related helpers
+        async function uploadCapsule() {
+            const id = document.getElementById('capsuleId').value;
+            const code = document.getElementById('capsuleCode').value;
+            const res = await fetch(`${apiBase}/capsule`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, code }),
+            });
+            output({ status: res.status, body: await res.text() });
+        }
+
+        async function listCapsules() {
+            const res = await fetch(`${apiBase}/capsule`);
+            output(await res.json());
+        }
+
+        async function invokeCapsule() {
+            const id = document.getElementById('invokeId').value;
+            const input = document.getElementById('invokeInput').value;
+            const res = await fetch(`${apiBase}/capsule/${encodeURIComponent(id)}/invoke`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ input }),
+            });
+            output(await res.json());
+        }
+
+        // wallet helpers
+        let currentPubkey = null;
+        let currentPrivkey = null;
+        function connectWallet() {
+            const pub = document.getElementById('pubkey').value.trim();
+            const priv = document.getElementById('privkey').value.trim();
+            if (pub && priv) {
+                currentPubkey = hexToBytes(pub);
+                currentPrivkey = hexToBytes(priv);
+                output({status: 'wallet connected'});
+            } else {
+                output({error: 'both keys required'});
+            }
+        }
+
+        async function signAndSubmit() {
+            if (!currentPubkey || !currentPrivkey) {
+                output({error: 'no wallet'});
+                return;
+            }
+            let tx;
+            try {
+                tx = JSON.parse(document.getElementById('txJson').value);
+            } catch (e) {
+                output({error: 'invalid json'});
+                return;
+            }
+            // use TweetNaCl.js for ed25519 signing
+            const sig = nacl.sign.detached(new Uint8Array(new TextEncoder().encode(JSON.stringify(tx))), currentPrivkey);
+            const request = {
+                caller: tx.kind && tx.kind.Transfer ? tx.kind.Transfer.from || '' : '',
+                pubkey: Array.from(currentPubkey),
+                signature: Array.from(sig),
+                tx,
+            };
+            const res = await fetch(`${apiBase}/tx`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(request)
+            });
+            output({status: res.status, body: await res.json()});
+        }
+
+        // anchors
+        async function anchor() {
+            const id = document.getElementById('anchorId').value;
+            const proof = document.getElementById('anchorProof').value;
+            const tx = { kind: { AnchorProof: { id, proof: atob(proof) } }, rw_set: {reads:[],writes:[]}, proof: null };
+            document.getElementById('txJson').value = JSON.stringify(tx);
+        }
+
+        async function listAnchors() {
+            const res = await fetch(`${apiBase}/anchors`);
+            output(await res.json());
+        }
+
+        async function getAnchor() {
+            const id = document.getElementById('getAnchorId').value;
+            const res = await fetch(`${apiBase}/anchor/${encodeURIComponent(id)}`);
+            output(await res.json());
+        }
+
         // theme toggle implementation
         document.getElementById('themeToggle').addEventListener('click', () => {
             document.documentElement.classList.toggle('dark');
         });
+
+        // helper converters
+        function hexToBytes(hex) {
+            if (hex.startsWith('0x')) hex = hex.slice(2);
+            const bytes = new Uint8Array(hex.length/2);
+            for (let i = 0; i < bytes.length; ++i) {
+                bytes[i] = parseInt(hex.substr(i*2,2),16);
+            }
+            return bytes;
+        }
     </script>
 </body>
 </html>

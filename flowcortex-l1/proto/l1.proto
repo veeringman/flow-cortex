@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package l1;
+
+// Generic empty message
+message Empty {}
+
+message AccountRequest { string account = 1; }
+message BalanceRequest { string account = 1; string token = 2; }
+message BalanceResponse { string account = 1; string token = 2; uint64 balance = 3; }
+
+// Transaction request carries JSON-encoded transaction to keep proto simple.
+message TxRequest { string caller = 1; bytes pubkey = 2; bytes signature = 3; string tx_json = 4; }
+message TxResponse { bool success = 1; string error = 2; }
+
+message PoolResponse { string pending_json = 1; }
+message Block { uint64 height = 1; string txs_json = 2; }
+message BlocksResponse { repeated Block blocks = 1; }
+message SnapshotResponse { string root = 1; }
+
+message AnchorRequest { string id = 1; }
+message AnchorListResponse { repeated string ids = 1; }
+message AnchorResponse { string id = 1; string proof_base64 = 2; string error = 3; }
+
+service L1 {
+    rpc GetBalance(BalanceRequest) returns (BalanceResponse);
+    rpc SubmitTx(TxRequest) returns (TxResponse);
+    rpc ListPool(Empty) returns (PoolResponse);
+    rpc ListBlocks(Empty) returns (BlocksResponse);
+    rpc Snapshot(Empty) returns (SnapshotResponse);
+    rpc ListAnchors(Empty) returns (AnchorListResponse);
+    rpc GetAnchor(AnchorRequest) returns (AnchorResponse);
+}

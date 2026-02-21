@@ -1,6 +1,7 @@
 use crate::ledger::Ledger;
-use crate::types::{AccountId, Block, Transaction, TransactionKind, Token, ReadWriteSet};
+use crate::types::{AccountId, Block, Transaction, TransactionKind, Token};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
@@ -21,6 +22,10 @@ pub struct Node {
     pub pool: Vec<Transaction>,
     /// simple linear chain of blocks (height starts at 1)
     pub blocks: Vec<Block>,
+    /// Uploaded capsules (WASM binaries) keyed by user-defined identifier
+    pub capsules: HashMap<String, Vec<u8>>,
+    /// Anchored proofs or data uploaded via AnchorProof transactions
+    pub anchors: HashMap<String, Vec<u8>>,
 }
 
 impl Node {
@@ -31,6 +36,8 @@ impl Node {
             history: Vec::new(),
             pool: Vec::new(),
             blocks: Vec::new(),
+            capsules: HashMap::new(),
+            anchors: HashMap::new(),
         }
     }
 
@@ -44,8 +51,34 @@ impl Node {
         self.ledger.balance(acct, token)
     }
 
+    /// store a capsule binary under the given id
+    pub fn store_capsule(&mut self, id: &str, code: Vec<u8>) -> Result<(), crate::types::LedgerError> {
+        if self.capsules.contains_key(id) {
+            return Err(crate::types::LedgerError::CapsuleError(format!(
+                "capsule `{}` already exists", id
+            )));
+        }
+        self.capsules.insert(id.to_string(), code);
+        Ok(())
+    }
+
+    /// execute a stored capsule; return arbitrary output bytes
+    pub fn execute_capsule(&self, id: &str, _input: &[u8]) -> Result<Vec<u8>, String> {
+        // TODO: plug in deterministic WASM runtime (e.g. wasmtime) and provide
+        // host functions giving capsules limited access to ledger APIs such as
+        // mint/transfer/anchor.  For now stub behaviour remains.
+        if self.capsules.contains_key(id) {
+            Ok(b"executed".to_vec())
+        } else {
+            Err(format!("capsule `{}` not found", id))
+        }
+    }
+
     /// Apply a transaction to the ledger, recording it in history.
     /// This is the primitive used by both pool submission and block creation.
+    ///
+    /// This method assumes the caller has already been authenticated (e.g.
+    /// signature verified) by the caller of `apply_signed_transaction`.
     pub(crate) fn apply_transaction(
         &mut self,
         caller: &AccountId,
@@ -63,8 +96,27 @@ impl Node {
                 self.ledger.mint(caller, to, token.clone(), *amount)?;
             }
             TransactionKind::Transfer { from, to, token, amount } => {
-                // cheap conflict check: ensure no existing pending tx writes same key
                 self.ledger.transfer(from, to, token.clone(), *amount)?;
+            }
+            TransactionKind::UploadCapsule { id, code } => {
+                self.store_capsule(id, code.clone())?;
+            }
+            TransactionKind::ExecuteCapsule { id, input } => {
+                let _ = self.execute_capsule(id, input);
+            }
+            TransactionKind::AnchorProof { id, proof } => {
+                if self.anchors.contains_key(id) {
+                    return Err(crate::types::LedgerError::CapsuleError(format!(
+                        "anchor `{}` already exists", id
+                    )));
+                }
+                self.anchors.insert(id.clone(), proof.clone());
+            }
+            TransactionKind::Trade { from, to, proof_amount, flower_amount } => {
+                // simple two‑way transfer; price logic would be added later or
+                // provided by capsule code.
+                self.ledger.transfer(from, to, Token::Proof, *proof_amount)?;
+                self.ledger.transfer(to, from, Token::FloweR, *flower_amount)?;
             }
         }
         // update snapshot root as a simple hash of ledger length + last tx
@@ -75,6 +127,7 @@ impl Node {
 
     /// Submit a transaction into the pending pool.
     /// The ledger is validated immediately so invalid txs are rejected.
+    /// This is a convenience wrapper around `apply_transaction`.
     pub fn submit_transaction(
         &mut self,
         caller: &AccountId,
@@ -84,13 +137,32 @@ impl Node {
         for pending in &self.pool {
             for w in &tx.rw_set.writes {
                 if pending.rw_set.writes.contains(w) {
-                    // simple conflict: return error using a custom variant or reuse InsufficientBalance
                     return Err(crate::types::LedgerError::Conflict);
                 }
             }
         }
         self.apply_transaction(caller, tx.clone())?;
         self.pool.push(tx);
+        Ok(())
+    }
+
+    /// Same as `submit_transaction` but takes a signed transaction and
+    /// verifies the signature first.
+    pub fn submit_signed_transaction(
+        &mut self,
+        stx: crate::types::SignedTransaction,
+    ) -> Result<(), crate::types::LedgerError> {
+        // conflict detection still uses inner tx
+        let tx = &stx.tx;
+        for pending in &self.pool {
+            for w in &tx.rw_set.writes {
+                if pending.rw_set.writes.contains(w) {
+                    return Err(crate::types::LedgerError::Conflict);
+                }
+            }
+        }
+        self.apply_signed_transaction(stx.clone())?;
+        self.pool.push(tx.clone());
         Ok(())
     }
 
@@ -153,6 +225,28 @@ impl Node {
         let data = fs::read_to_string(path)?;
         let node = serde_json::from_str(&data)?;
         Ok(node)
+    }
+
+    /// Verify a signed transaction and apply it if the signature is valid.
+    ///
+    /// The message that is signed is simply the serialized `Transaction` object;
+    /// in a full implementation this would be canonicalized or hashed separately.
+    pub fn apply_signed_transaction(
+        &mut self,
+        stx: crate::types::SignedTransaction,
+    ) -> Result<(), crate::types::LedgerError> {
+        let msg = serde_json::to_vec(&stx.tx).map_err(|e| {
+            crate::types::LedgerError::CapsuleError(format!("serde: {}", e))
+        })?;
+        use ed25519_dalek::{PublicKey, Signature, Verifier};
+        let pk = PublicKey::from_bytes(&stx.pubkey)
+            .map_err(|_| crate::types::LedgerError::InvalidSignature)?;
+        let sig = Signature::from_bytes(&stx.signature)
+            .map_err(|_| crate::types::LedgerError::InvalidSignature)?;
+        if pk.verify(&msg, &sig).is_err() {
+            return Err(crate::types::LedgerError::InvalidSignature);
+        }
+        self.apply_transaction(&stx.caller, stx.tx)
     }
 }
 
@@ -300,5 +394,54 @@ mod tests {
         let contents = std::fs::read_to_string("blocks.log").unwrap();
         assert!(contents.contains(&format!("\"height\":{}", block.height)));
         let _ = std::fs::remove_file("blocks.log");
+    }
+
+    #[test]
+    fn anchor_proof_stored_and_retrievable() {
+        let admin = "admin".to_string();
+        let mut node = Node::new(admin.clone());
+        node.create_account(&admin);
+        let tx = Transaction {
+            kind: TransactionKind::AnchorProof { id: "proof1".to_string(), proof: vec![1,2,3] },
+            rw_set: ReadWriteSet::default(),
+            proof: None,
+        };
+        assert!(node.apply_transaction(&admin, tx).is_ok());
+        assert_eq!(node.anchors.get("proof1"), Some(&vec![1,2,3]));
+    }
+
+    #[test]
+    fn signed_transaction_rejected_with_wrong_key() {
+        use ed25519_dalek::{Keypair, Signer, SecretKey, PublicKey};
+
+        let admin = "admin".to_string();
+        let mut node = Node::new(admin.clone());
+        node.create_account(&admin);
+
+        // construct a keypair from a constant secret bytes (not secure, used only
+        // for tests).  Public key is derived automatically.
+        let sk_bytes = [42u8; 32];
+        let secret = SecretKey::from_bytes(&sk_bytes).unwrap();
+        let public = PublicKey::from(&secret);
+        let kp = Keypair { secret, public };
+
+        // build a simple mint transaction
+        let tx = Transaction {
+            kind: TransactionKind::Mint { to: "alice".to_string(), token: Token::Proof, amount: 5 },
+            rw_set: ReadWriteSet::default(),
+            proof: None,
+        };
+        let msg = serde_json::to_vec(&tx).unwrap();
+        let sig = kp.sign(&msg).to_bytes().to_vec();
+        let stx = crate::types::SignedTransaction {
+            caller: admin.clone(),
+            pubkey: kp.public.to_bytes().to_vec(),
+            signature: sig,
+            tx: tx.clone(),
+        };
+        // flip a byte to create an invalid signature
+        let mut bad = stx.clone();
+        bad.signature[0] ^= 0xff;
+        assert!(matches!(node.apply_signed_transaction(bad), Err(crate::types::LedgerError::InvalidSignature)));
     }
 }
