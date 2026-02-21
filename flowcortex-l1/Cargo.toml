@@ -14,6 +14,9 @@ thiserror = "1.0"
 sha2 = "0.10"
 hex = "0.4"
 
+# HTTP utilities (CORS middleware)
+tower-http = { version = "0.3", features = ["cors", "set-header"] }
+
 # we use hyper::Server in the binary
 
 [dev-dependencies]

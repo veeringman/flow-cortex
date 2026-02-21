@@ -31,6 +31,7 @@ async fn main() {
 
     let app = make_router(node.clone());
 
+
     println!("L1 node running with admin='{}'", admin);
     // determine bind address (allow override via BIND_ADDR env var)
     let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3000".to_string());

@@ -7,6 +7,10 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use axum::middleware::{self, Next};
+use axum::http::{Request, HeaderValue};
+use axum::body::Body;
+use axum::response::Response;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 
@@ -201,6 +205,16 @@ async fn snapshot(Extension(node): Extension<SharedNode>) -> impl IntoResponse {
 
 /// Build the router for the RPC server.
 pub fn make_router(node: SharedNode) -> Router {
+    // middleware to inject permissive CORS headers
+    async fn cors(req: Request<Body>, next: Next) -> Response {
+        let mut res = next.run(req).await;
+        let headers = res.headers_mut();
+        headers.insert("access-control-allow-origin", HeaderValue::from_static("*"));
+        headers.insert("access-control-allow-methods", HeaderValue::from_static("*"));
+        headers.insert("access-control-allow-headers", HeaderValue::from_static("*"));
+        res
+    }
+
     Router::new()
         .route("/account", post(create_account))
         .route("/mint", post(mint))
@@ -210,5 +224,6 @@ pub fn make_router(node: SharedNode) -> Router {
         .route("/block", post(create_block))
         .route("/blocks", get(list_blocks))
         .route("/snapshot", get(snapshot))
+        .layer(middleware::from_fn(cors))
         .layer(Extension(node))
 }
