@@ -168,3 +168,34 @@ Code will follow once core invariants are locked.
 > Directories under `crates/` represent compile-time Rust units.
 > Directories under the project root represent runtime, operational,
 > or conceptual system domains. Names may overlap by design.
+
+### Experimental prototypes
+
+- `flowcortex-l0` – a tiny proof-of-concept library for the quantum cascade tree.
+- `flowcortex-l1` – minimal L1 blockchain with an in‑memory ledger, RPC server, QCT stubs, read/write sets, conflict detection and a toy block producer (ordering‑less, no real consensus yet). See `flowcortex-l1/readme.md` for details.
+
+- `flowcortex-explorer` – separate crate providing a web-based explorer UI (Rust/axum/Askama) for querying the L1 node. A CLI or gRPC client could be added later depending on user needs.
+
+---
+
+## End-to-End Smoke Tests
+
+A set of simple build/test scripts and integration tests exercise the minimal L1 node and explorer together:
+
+* `scripts/e2e/run_l1_explorer_e2e.sh` – shell script that builds both crates, runs their unit tests, launches the servers, and performs basic RPC/HTTP checks using `curl`.
+* `scripts/run_servers.sh` – simple helper that builds and starts the L1 node and explorer together; accepts optional bind addresses for public exposure.
+
+### Running the prototypes
+
+The L1 node and explorer binaries read `BIND_ADDR` to determine the listen address. By default they bind to `0.0.0.0:3000` and `0.0.0.0:4000` respectively, which makes them reachable from outside the container once ports are forwarded. You can override with environment variables or via the `run_servers.sh` script:
+
+```sh
+# start both services, listening on all interfaces
+scripts/run_servers.sh
+
+# custom addresses
+scripts/run_servers.sh 0.0.0.0:3001 127.0.0.1:4005
+```
+* Crate-level integration tests (`flowcortex-l1/tests/e2e.rs` and `explorer/tests/e2e.rs`) which spawn the binary and use `reqwest` to verify core endpoints. Run with `cargo test --manifest-path <crate>/Cargo.toml`.
+
+These tests help catch regressions as the prototypes evolve.
