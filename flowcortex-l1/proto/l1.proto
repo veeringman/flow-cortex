@@ -5,6 +5,8 @@ package l1;
 // Generic empty message
 message Empty {}
 
+// ============== CORE MESSAGES ==============
+
 message AccountRequest { string account = 1; }
 message BalanceRequest { string account = 1; string token = 2; }
 message BalanceResponse { string account = 1; string token = 2; uint64 balance = 3; }
@@ -22,6 +24,193 @@ message AnchorRequest { string id = 1; }
 message AnchorListResponse { repeated string ids = 1; }
 message AnchorResponse { string id = 1; string proof_base64 = 2; string error = 3; }
 
+// ============== TOKEN MESSAGES ==============
+
+message TokenMetadata {
+    string symbol = 1;              // "FLOWER", "USDC", "PROOF"
+    string name = 2;                // "Flow Dollar", "USD Coin"
+    uint32 decimals = 3;            // 6 for stablecoins, 0 for native
+    uint64 total_supply = 4;        // Total minted tokens
+    string creator = 5;             // Treasury/issuer account
+    string token_type = 6;          // "Native", "Stablecoin", "Governance"
+    string status = 7;              // "Active", "Frozen", "Paused"
+    int64 created_at = 8;           // Block height when created
+    string metadata_json = 9;       // Backing, collateral info, etc.
+}
+
+message CreateTokenRequest {
+    string symbol = 1;
+    string name = 2;
+    uint32 decimals = 3;
+    uint64 initial_supply = 4;
+    string token_type = 5;          // "Native", "Stablecoin"
+    string metadata_json = 6;       // JSON with backing, collateral
+}
+
+message CreateTokenResponse {
+    bool success = 1;
+    string symbol = 2;
+    string error = 3;
+}
+
+message MintRequest {
+    string caller = 1;              // Treasury/admin account
+    string token = 2;               // Token symbol
+    string to = 3;                  // Destination account
+    uint64 amount = 4;
+}
+
+message BurnRequest {
+    string caller = 1;
+    string token = 2;
+    string from = 3;                // Account to burn from
+    uint64 amount = 4;
+}
+
+message BurnResponse {
+    bool success = 1;
+    uint64 remaining_supply = 2;    // Remaining total supply
+    string error = 3;
+}
+
+message TokenListRequest {}
+
+message TokenListResponse {
+    repeated TokenMetadata tokens = 1;
+}
+
+message TokenRequest {
+    string symbol = 1;
+}
+
+message TokenHistoryRequest {
+    string token = 1;
+    uint64 limit = 2;
+}
+
+message TokenEvent {
+    string event_type = 1;          // "Created", "Minted", "Burned", "Frozen"
+    string token = 2;
+    string account = 3;             // Account involved in event
+    uint64 amount = 4;              // For Mint/Burn events
+    uint64 block_height = 5;
+    int64 timestamp = 6;
+}
+
+message TokenHistoryResponse {
+    repeated TokenEvent events = 1;
+}
+
+// ============== SETTLEMENT MESSAGES ==============
+
+message BankAccountResponse {
+    string account_id = 1;
+    string bank_name = 2;
+    string swift_code = 3;          // SWIFT code for identification
+    bool is_approved = 4;
+    int64 created_at = 5;
+}
+
+message BankListResponse {
+    repeated BankAccountResponse banks = 1;
+}
+
+message BankAccountRequest {
+    string account_id = 1;
+}
+
+message SettlementMintRequest {
+    string bank_account = 1;        // "bank-a.institution.com"
+    string token = 2;               // "FLOWER"
+    uint64 amount = 3;
+    string reference = 4;           // Off-chain settlement reference
+    string metadata_json = 5;       // Purpose, notes, etc.
+}
+
+message SettlementBurnRequest {
+    string bank_account = 1;
+    string token = 2;
+    uint64 amount = 3;
+    string reference = 4;
+    string metadata_json = 5;
+}
+
+message SettlementTransferRequest {
+    string from_account = 1;        // Bank A
+    string to_account = 2;          // Bank B
+    string token = 3;               // "FLOWER"
+    uint64 amount = 4;
+    string reference = 5;           // Settlement reference
+    string metadata_json = 6;       // Purpose, invoice, etc.
+}
+
+message SettlementResponse {
+    bool success = 1;
+    string tx_hash = 2;
+    uint64 block_height = 3;
+    string from_balance = 4;        // Source account balance after
+    string to_balance = 5;          // Dest account balance after
+    string error = 6;
+}
+
+message SettlementStatusRequest {
+    string reference = 1;           // Settlement reference to check
+}
+
+message SettlementStatusResponse {
+    string status = 1;              // "pending", "confirmed", "failed"
+    uint64 block_height = 2;
+    int64 timestamp = 3;
+    string tx_hash = 4;
+}
+
+message TransactionRecord {
+    string tx_hash = 1;
+    string kind = 2;                // "Mint", "Burn", "Transfer"
+    string from = 3;
+    string to = 4;
+    string token = 5;
+    uint64 amount = 6;
+    uint64 block_height = 7;
+    int64 timestamp = 8;
+    string status = 9;              // "success", "failed"
+}
+
+message TransactionHistoryRequest {
+    string account = 1;
+    uint64 limit = 2;
+    uint64 offset = 3;
+}
+
+message TransactionHistoryResponse {
+    repeated TransactionRecord transactions = 1;
+    uint64 total_count = 2;
+}
+
+// ============== ADMIN MESSAGES ==============
+
+message FreezeTokenRequest {
+    string token = 1;
+}
+
+message FreezeTokenResponse {
+    bool success = 1;
+    string error = 2;
+}
+
+message DailyLimitRequest {
+    string bank_account = 1;
+    string token = 2;
+    uint64 daily_limit = 3;
+}
+
+message DailyLimitResponse {
+    bool success = 1;
+    string error = 2;
+}
+
+// ============== SERVICES ==============
+
 service L1 {
     rpc GetBalance(BalanceRequest) returns (BalanceResponse);
     rpc SubmitTx(TxRequest) returns (TxResponse);
@@ -30,4 +219,41 @@ service L1 {
     rpc Snapshot(Empty) returns (SnapshotResponse);
     rpc ListAnchors(Empty) returns (AnchorListResponse);
     rpc GetAnchor(AnchorRequest) returns (AnchorResponse);
+}
+
+// Token management service
+service Tokens {
+    // Token creation and metadata
+    rpc CreateToken(CreateTokenRequest) returns (CreateTokenResponse);
+    rpc ListTokens(TokenListRequest) returns (TokenListResponse);
+    rpc GetToken(TokenRequest) returns (TokenMetadata);
+    
+    // Token operations (mint/burn)
+    rpc Mint(MintRequest) returns (BalanceResponse);
+    rpc Burn(BurnRequest) returns (BurnResponse);
+    
+    // History and audit
+    rpc GetTokenHistory(TokenHistoryRequest) returns (TokenHistoryResponse);
+    rpc GetTransactionHistory(TransactionHistoryRequest) returns (TransactionHistoryResponse);
+}
+
+// Settlement operations service
+service Settlement {
+    // Mint/Burn for settlement
+    rpc Mint(SettlementMintRequest) returns (SettlementResponse);
+    rpc Burn(SettlementBurnRequest) returns (SettlementResponse);
+    rpc Transfer(SettlementTransferRequest) returns (SettlementResponse);
+    
+    // Status and queries
+    rpc GetStatus(SettlementStatusRequest) returns (SettlementStatusResponse);
+    rpc ListBanks(Empty) returns (BankListResponse);
+    rpc GetBank(BankAccountRequest) returns (BankAccountResponse);
+}
+
+// Admin operations service
+service Admin {
+    rpc ApproveBank(BankAccountResponse) returns (BankAccountResponse);
+    rpc FreezeToken(FreezeTokenRequest) returns (FreezeTokenResponse);
+    rpc UnfreezeToken(FreezeTokenRequest) returns (FreezeTokenResponse);
+    rpc SetDailyLimit(DailyLimitRequest) returns (DailyLimitResponse);
 }

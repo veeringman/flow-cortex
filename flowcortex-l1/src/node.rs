@@ -10,7 +10,8 @@ use std::path::Path;
 /// No consensus or networking is implemented; this is a single-process prototype.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Node {
-    ledger: Ledger,
+    pub ledger: Ledger,
+    pub admin: AccountId,
     /// current snapshot root of the state (simple hash). In a full QCT
     /// implementation this would be the commitment root. This field allows the
     /// node to operate without needing to scan the whole ledger for verification.
@@ -31,7 +32,8 @@ pub struct Node {
 impl Node {
     pub fn new(admin: AccountId) -> Self {
         Node {
-            ledger: Ledger::new(admin),
+            ledger: Ledger::new(admin.clone()),
+            admin: admin,
             snapshot_root: vec![],
             history: Vec::new(),
             pool: Vec::new(),
@@ -115,8 +117,30 @@ impl Node {
             TransactionKind::Trade { from, to, proof_amount, flower_amount } => {
                 // simple two‑way transfer; price logic would be added later or
                 // provided by capsule code.
-                self.ledger.transfer(from, to, Token::Proof, *proof_amount)?;
-                self.ledger.transfer(to, from, Token::FloweR, *flower_amount)?;
+                self.ledger.transfer(from, to, "proof".to_string(), *proof_amount)?;
+                self.ledger.transfer(to, from, "flower".to_string(), *flower_amount)?;
+            }
+            // Token management operations (will be implemented in Phase 2)
+            TransactionKind::CreateToken { symbol, name, decimals, initial_supply, token_type, metadata } => {
+                // TODO: implement token creation in ledger
+            }
+            TransactionKind::Burn { token, from, amount } => {
+                // TODO: implement token burning in ledger
+            }
+            TransactionKind::FreezeToken { token } => {
+                // TODO: implement token freeze in ledger
+            }
+            TransactionKind::UnfreezeToken { token } => {
+                // TODO: implement token unfreeze in ledger
+            }
+            TransactionKind::SettlementMint { token, to, amount, reference, metadata } => {
+                // TODO: implement settlement mint in ledger
+            }
+            TransactionKind::SettlementBurn { token, from, amount, reference, metadata } => {
+                // TODO: implement settlement burn in ledger
+            }
+            TransactionKind::SettlementTransfer { token, from, to, amount, reference, metadata } => {
+                // TODO: implement settlement transfer in ledger
             }
         }
         // update snapshot root as a simple hash of ledger length + last tx
@@ -266,7 +290,7 @@ mod tests {
         let tx = Transaction {
             kind: TransactionKind::Mint {
                 to: "alice".to_string(),
-                token: Token::Proof,
+                token: "proof".to_string(),
                 amount: 500,
             },
             rw_set: ReadWriteSet {
@@ -276,7 +300,7 @@ mod tests {
             proof: None,
         };
         assert!(node.apply_transaction(&admin, tx).is_ok());
-        assert_eq!(node.balance(&"alice".to_string(), &Token::Proof), 500);
+        assert_eq!(node.balance(&"alice".to_string(), &"proof".to_string()), 500);
     }
 
     #[test]
@@ -292,7 +316,7 @@ mod tests {
             .submit_transaction(
                 &admin,
                 Transaction {
-                    kind: TransactionKind::Mint { to: "alice".to_string(), token: Token::Proof, amount: 100 },
+                    kind: TransactionKind::Mint { to: "alice".to_string(), token: "proof".to_string(), amount: 100 },
                     rw_set: ReadWriteSet { reads: vec![admin.clone()], writes: vec!["alice".to_string()] },
                     proof: None,
                 },
@@ -302,7 +326,7 @@ mod tests {
             .submit_transaction(
                 &"alice".to_string(),
                 Transaction {
-                    kind: TransactionKind::Transfer { from: "alice".to_string(), to: "bob".to_string(), token: Token::Proof, amount: 30 },
+                    kind: TransactionKind::Transfer { from: "alice".to_string(), to: "bob".to_string(), token: "proof".to_string(), amount: 30 },
                     rw_set: ReadWriteSet { reads: vec!["alice".to_string()], writes: vec!["bob".to_string()] },
                     proof: None,
                 },
@@ -325,14 +349,14 @@ mod tests {
         node.create_account(&"alice".to_string());
         // first transaction writes alice
         let t1 = Transaction {
-            kind: TransactionKind::Mint { to: "alice".to_string(), token: Token::Proof, amount: 10 },
+            kind: TransactionKind::Mint { to: "alice".to_string(), token: "proof".to_string(), amount: 10 },
             rw_set: ReadWriteSet { reads: vec![admin.clone()], writes: vec!["alice".to_string()] },
             proof: None,
         };
         assert!(node.submit_transaction(&admin, t1).is_ok());
         // second transaction also writes alice -> conflict
         let t2 = Transaction {
-            kind: TransactionKind::Transfer { from: "alice".to_string(), to: "bob".to_string(), token: Token::Proof, amount: 5 },
+            kind: TransactionKind::Transfer { from: "alice".to_string(), to: "bob".to_string(), token: "proof".to_string(), amount: 5 },
             rw_set: ReadWriteSet { reads: vec!["alice".to_string()], writes: vec!["alice".to_string()] },
             proof: None,
         };
@@ -348,7 +372,7 @@ mod tests {
         let tx = Transaction {
             kind: TransactionKind::Mint {
                 to: "alice".to_string(),
-                token: Token::Proof,
+                token: "proof".to_string(),
                 amount: 1,
             },
             rw_set: ReadWriteSet { reads: vec![admin.clone()], writes: vec!["alice".to_string()] },
@@ -365,7 +389,7 @@ mod tests {
         node.create_account(&admin);
         // create a transaction with mismatched proof
         let mut tx = Transaction {
-            kind: TransactionKind::Mint { to: "alice".to_string(), token: Token::Proof, amount: 10 },
+            kind: TransactionKind::Mint { to: "alice".to_string(), token: "proof".to_string(), amount: 10 },
             rw_set: ReadWriteSet { reads: vec![admin.clone()], writes: vec!["alice".to_string()] },
             proof: Some(QCTProof(vec![0,1,2])),
         };
@@ -383,7 +407,7 @@ mod tests {
         let _ = node.submit_transaction(
             &admin,
             Transaction {
-                kind: TransactionKind::Mint { to: "alice".to_string(), token: Token::Proof, amount: 10 },
+                kind: TransactionKind::Mint { to: "alice".to_string(), token: "proof".to_string(), amount: 10 },
                 rw_set: ReadWriteSet { reads: vec![admin.clone()], writes: vec!["alice".to_string()] },
                 proof: None,
             },
@@ -427,7 +451,7 @@ mod tests {
 
         // build a simple mint transaction
         let tx = Transaction {
-            kind: TransactionKind::Mint { to: "alice".to_string(), token: Token::Proof, amount: 5 },
+            kind: TransactionKind::Mint { to: "alice".to_string(), token: "proof".to_string(), amount: 5 },
             rw_set: ReadWriteSet::default(),
             proof: None,
         };

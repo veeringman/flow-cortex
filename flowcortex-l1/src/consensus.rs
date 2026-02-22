@@ -42,7 +42,7 @@ mod tests {
         {
             let mut n = shared.lock().unwrap();
             let _ = n.submit_transaction(&admin, Transaction {
-                kind: crate::types::TransactionKind::Mint { to: "alice".to_string(), token: Token::Proof, amount: 1 },
+                kind: crate::types::TransactionKind::Mint { to: "alice".to_string(), token: "proof".to_string(), amount: 1 },
                 rw_set: Default::default(),
                 proof: None,
             }).unwrap();

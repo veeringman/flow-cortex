@@ -174,19 +174,7 @@ async fn balance(
     Path((acct, token_str)): Path<(AccountId, String)>,
     Extension(node): Extension<SharedNode>,
 ) -> impl IntoResponse {
-    let token = match token_str.as_str() {
-        "Proof" | "proof" => Token::Proof,
-        "FloweR" | "flower" | "flowr" => Token::FloweR,
-        other => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    error: format!("unknown token `{}`", other),
-                }),
-            )
-                .into_response();
-        }
-    };
+    let token = token_str.to_lowercase();
     let n = node.lock().unwrap();
     let bal = n.balance(&acct, &token);
     Json(BalanceResponse { account: acct, token, balance: bal }).into_response()
