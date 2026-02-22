@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlowCortex Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #1e40af;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .sidebar {
+            transition: transform 0.3s ease, width 0.3s ease;
+        }
+
+        .sidebar.mobile-hidden {
+            transform: translateX(-100%);
+        }
+
+        @media (max-width: 768px) {
+            .sidebar.mobile-hidden {
+                position: fixed;
+                left: 0;
+                top: 0;
+                z-index: 50;
+                transform: translateX(-100%);
+            }
+
+            .sidebar {
+                width: 100%;
+                max-width: 280px;
+            }
+
+            .content {
+                width: 100%;
+            }
+        }
+
+        .tab-button {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button.active {
+            color: var(--primary);
+        }
+
+        .tab-button.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: var(--primary);
+        }
+
+        .output-box {
+            max-height: 600px;
+            overflow-y: auto;
+            background-color: #f3f4f6;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .dark .output-box {
+            background-color: #1f2937;
+        }
+
+        .toggle-sidebar {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .toggle-sidebar {
+                display: block;
+            }
+        }
+
+        .input-field {
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .input-field:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .button-primary {
+            background-color: var(--primary);
+            transition: all 0.2s ease;
+        }
+
+        .button-primary:hover:not(:disabled) {
+            background-color: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .button-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .section-header i {
+            color: var(--primary);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-badge.success {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-badge.error {
+            background-color: #fee2e2;
+            color: #7f1d1d;
+        }
+
+        .status-badge.pending {
+            background-color: #fef3c7;
+            color: #78350f;
+        }
+
+        .card {
+            border-radius: 0.75rem;
+            border: 1px solid #e5e7eb;
+            background-color: white;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .dark .card {
+            border-color: #374151;
+            background-color: #1f2937;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background-color: currentColor;
+            animation: blink 1.4s infinite;
+        }
+
+        @keyframes blink {
+            0%, 20%, 50%, 80%, 100% { opacity: 1; }
+            40% { opacity: 0.2; }
+            60% { opacity: 0.2; }
+        }
+
+        .tooltip {
+            position: relative;
+            cursor: help;
+        }
+
+        .tooltip:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #111827;
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <aside class="sidebar w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+            <!-- Logo -->
+            <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h1 class="text-2xl font-bold text-blue-600">
+                    <i class="fas fa-cube mr-2"></i>FlowCortex
+                </h1>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Blockchain Explorer</p>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 overflow-y-auto p-4">
+                <ul class="space-y-2">
+                    <li>
+                        <button onclick="switchTab('dashboard')" class="tab-button active w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                            <i class="fas fa-chart-line mr-2"></i>Dashboard
+                        </button>
+                    </li>
+                    <li>
+                        <button onclick="switchTab('balance')" class="tab-button w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                            <i class="fas fa-wallet mr-2"></i>Balance
+                        </button>
+                    </li>
+                    <li>
+                        <button onclick="switchTab('blocks')" class="tab-button w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                            <i class="fas fa-cube mr-2"></i>Blocks
+                        </button>
+                    </li>
+                    <li>
+                        <button onclick="switchTab('transactions')" class="tab-button w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                            <i class="fas fa-arrows-alt-h mr-2"></i>Transactions
+                        </button>
+                    </li>
+                    <li>
+                        <button onclick="switchTab('capsules')" class="tab-button w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                            <i class="fas fa-box mr-2"></i>Capsules
+                        </button>
+                    </li>
+                    <li>
+                        <button onclick="switchTab('anchors')" class="tab-button w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                            <i class="fas fa-anchor mr-2"></i>Anchors
+                        </button>
+                    </li>
+                    <li>
+                        <button onclick="switchTab('wallet')" class="tab-button w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                            <i class="fas fa-key mr-2"></i>Wallet
+                        </button>
+                    </li>
+                </ul>
+            </nav>
+
+            <!-- Footer Controls -->
+            <div class="border-t border-gray-200 dark:border-gray-700 p-4 space-y-2">
+                <button onclick="toggleTheme()" class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm">
+                    <i class="fas fa-moon mr-2"></i>Dark Mode
+                </button>
+                <div class="text-xs text-gray-500 dark:text-gray-400 p-2 bg-gray-100 dark:bg-gray-700 rounded">
+                    <p><strong>API:</strong> http://127.0.0.1:3000</p>
+                    <p id="status" class="mt-1"><span class="loading"></span> Connecting...</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content flex-1 flex flex-col overflow-hidden">
+            <!-- Header -->
+            <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <button id="toggleSidebar" class="toggle-sidebar p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h2 id="pageTitle" class="text-2xl font-bold">Dashboard</h2>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button onclick="refreshAll()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition" title="Refresh all data">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white cursor-pointer">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="flex-1 overflow-y-auto">
+                <div class="p-6 max-w-6xl mx-auto space-y-6">
+                    <!-- Dashboard Tab -->
+                    <div id="dashboard-content" class="tab-content">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <div class="card p-4">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">Total Blocks</p>
+                                        <p class="text-3xl font-bold mt-1" id="stat-blocks">-</p>
+                                    </div>
+                                    <i class="fas fa-cube text-2xl text-blue-500 opacity-50"></i>
+                                </div>
+                            </div>
+                            <div class="card p-4">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">State Root</p>
+                                        <p class="text-xs font-mono mt-1" id="stat-root">-</p>
+                                    </div>
+                                    <i class="fas fa-tree text-2xl text-green-500 opacity-50"></i>
+                                </div>
+                            </div>
+                            <div class="card p-4">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">Pending TXs</p>
+                                        <p class="text-3xl font-bold mt-1" id="stat-pending">-</p>
+                                    </div>
+                                    <i class="fas fa-hourglass text-2xl text-orange-500 opacity-50"></i>
+                                </div>
+                            </div>
+                            <div class="card p-4">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">Capsules</p>
+                                        <p class="text-3xl font-bold mt-1" id="stat-capsules">-</p>
+                                    </div>
+                                    <i class="fas fa-box text-2xl text-purple-500 opacity-50"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card p-6">
+                            <h3 class="text-lg font-semibold mb-4">Recent Activity</h3>
+                            <div class="space-y-2 text-sm">
+                                <p class="text-gray-500 dark:text-gray-400">Loading recent blocks...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Balance Tab -->
+                    <div id="balance-content" class="tab-content hidden">
+                        <div class="card p-6">
+                            <div class="section-header">
+                                <i class="fas fa-wallet"></i>
+                                <h3 class="text-lg font-semibold">Account Balance</h3>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Account</label>
+                                        <input id="balance-account" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" placeholder="admin" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Token</label>
+                                        <select id="balance-token" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+                                            <option value="proof">Proof</option>
+                                            <option value="flower">FloweR</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <button onclick="queryBalance()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium">
+                                    <i class="fas fa-search mr-2"></i>Lookup Balance
+                                </button>
+                            </div>
+                            <div id="balance-output" class="output-box hidden mt-4"></div>
+                        </div>
+                    </div>
+
+                    <!-- Blocks Tab -->
+                    <div id="blocks-content" class="tab-content hidden">
+                        <div class="card p-6">
+                            <div class="section-header">
+                                <i class="fas fa-cube"></i>
+                                <h3 class="text-lg font-semibold">Blocks</h3>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="flex gap-2 flex-col md:flex-row">
+                                    <button onclick="queryBlocks()" class="button-primary flex-1 px-4 py-2 text-white rounded-lg font-medium">
+                                        <i class="fas fa-sync-alt mr-2"></i>Refresh Blocks
+                                    </button>
+                                    <button onclick="createBlock()" class="button-primary flex-1 px-4 py-2 text-white rounded-lg font-medium bg-green-500 hover:bg-green-600">
+                                        <i class="fas fa-plus mr-2"></i>Create Block
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="blocks-output" class="output-box hidden mt-4"></div>
+                        </div>
+                    </div>
+
+                    <!-- Transactions Tab -->
+                    <div id="transactions-content" class="tab-content hidden">
+                        <div class="card p-6 mb-6">
+                            <div class="section-header">
+                                <i class="fas fa-arrows-alt-h"></i>
+                                <h3 class="text-lg font-semibold">Pending Pool</h3>
+                            </div>
+                            <button onclick="queryPool()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium">
+                                <i class="fas fa-sync-alt mr-2"></i>Refresh Pool
+                            </button>
+                            <div id="pool-output" class="output-box hidden mt-4"></div>
+                        </div>
+
+                        <div class="card p-6">
+                            <div class="section-header">
+                                <i class="fas fa-file-alt"></i>
+                                <h3 class="text-lg font-semibold">Snapshot</h3>
+                            </div>
+                            <button onclick="querySnapshot()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium">
+                                <i class="fas fa-tree mr-2"></i>Get Snapshot
+                            </button>
+                            <div id="snapshot-output" class="output-box hidden mt-4"></div>
+                        </div>
+                    </div>
+
+                    <!-- Capsules Tab -->
+                    <div id="capsules-content" class="tab-content hidden">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="card p-6">
+                                <div class="section-header">
+                                    <i class="fas fa-plus"></i>
+                                    <h3 class="text-lg font-semibold">Upload Capsule</h3>
+                                </div>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Capsule ID</label>
+                                        <input id="capsule-id" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" placeholder="my_capsule" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Code (Base64)</label>
+                                        <textarea id="capsule-code" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 h-32" placeholder="Base64 encoded WASM or bytecode"></textarea>
+                                    </div>
+                                    <button onclick="uploadCapsule()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium bg-green-500 hover:bg-green-600">
+                                        <i class="fas fa-upload mr-2"></i>Upload
+                                    </button>
+                                </div>
+                                <div id="capsule-upload-output" class="output-box hidden mt-4"></div>
+                            </div>
+
+                            <div class="card p-6">
+                                <div class="section-header">
+                                    <i class="fas fa-play"></i>
+                                    <h3 class="text-lg font-semibold">List & Invoke</h3>
+                                </div>
+                                <div class="space-y-4">
+                                    <button onclick="listCapsules()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium">
+                                        <i class="fas fa-list mr-2"></i>List Capsules
+                                    </button>
+                                    <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                                        <label class="block text-sm font-medium mb-2">Capsule ID to Invoke</label>
+                                        <input id="invoke-id" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 mb-2" placeholder="capsule_id" />
+                                        <label class="block text-sm font-medium mb-2">Input (Base64)</label>
+                                        <input id="invoke-input" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" placeholder="base64 input" />
+                                    </div>
+                                    <button onclick="invokeCapsule()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium bg-purple-500 hover:bg-purple-600">
+                                        <i class="fas fa-play mr-2"></i>Invoke
+                                    </button>
+                                </div>
+                                <div id="capsule-invoke-output" class="output-box hidden mt-4"></div>
+                            </div>
+                        </div>
+                        <div id="capsules-output" class="output-box hidden mt-6"></div>
+                    </div>
+
+                    <!-- Anchors Tab -->
+                    <div id="anchors-content" class="tab-content hidden">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="card p-6">
+                                <div class="section-header">
+                                    <i class="fas fa-plus"></i>
+                                    <h3 class="text-lg font-semibold">Create Anchor</h3>
+                                </div>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Anchor ID</label>
+                                        <input id="anchor-id" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" placeholder="anchor_id" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Proof (Base64)</label>
+                                        <textarea id="anchor-proof" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 h-24" placeholder="Base64 encoded proof"></textarea>
+                                    </div>
+                                    <button onclick="submitAnchor()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium bg-green-500 hover:bg-green-600">
+                                        <i class="fas fa-save mr-2"></i>Submit Anchor
+                                    </button>
+                                </div>
+                                <div id="anchor-submit-output" class="output-box hidden mt-4"></div>
+                            </div>
+
+                            <div class="card p-6">
+                                <div class="section-header">
+                                    <i class="fas fa-search"></i>
+                                    <h3 class="text-lg font-semibold">Query Anchors</h3>
+                                </div>
+                                <div class="space-y-4">
+                                    <button onclick="listAnchors()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium">
+                                        <i class="fas fa-list mr-2"></i>List All Anchors
+                                    </button>
+                                    <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                                        <label class="block text-sm font-medium mb-2">Get Anchor by ID</label>
+                                        <input id="get-anchor-id" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" placeholder="anchor_id" />
+                                    </div>
+                                    <button onclick="getAnchor()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium">
+                                        <i class="fas fa-search mr-2"></i>Get Anchor
+                                    </button>
+                                </div>
+                                <div id="anchor-query-output" class="output-box hidden mt-4"></div>
+                            </div>
+                        </div>
+                        <div id="anchors-output" class="output-box hidden mt-6"></div>
+                    </div>
+
+                    <!-- Wallet Tab -->
+                    <div id="wallet-content" class="tab-content hidden">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="card p-6">
+                                <div class="section-header">
+                                    <i class="fas fa-key"></i>
+                                    <h3 class="text-lg font-semibold">Wallet Setup</h3>
+                                </div>
+                                <div class="space-y-4">
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">Import your ed25519 keypair to sign transactions.</p>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Public Key (Hex)</label>
+                                        <input id="wallet-pubkey" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-xs" placeholder="0x..." />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Private Key (Hex)</label>
+                                        <input id="wallet-privkey" type="password" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-xs" placeholder="0x..." />
+                                    </div>
+                                    <button onclick="connectWallet()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium">
+                                        <i class="fas fa-plug mr-2"></i>Connect Wallet
+                                    </button>
+                                    <div id="wallet-status" class="hidden"></div>
+                                </div>
+                            </div>
+
+                            <div class="card p-6">
+                                <div class="section-header">
+                                    <i class="fas fa-pen"></i>
+                                    <h3 class="text-lg font-semibold">Sign & Submit</h3>
+                                </div>
+                                <div class="space-y-4">
+                                    <p class="text-sm text-gray-600 dark:text-gray-400" id="wallet-connected" style="display:none;">
+                                        <span class="status-badge success"><i class="fas fa-check mr-1"></i> Wallet Connected</span>
+                                    </p>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Transaction JSON</label>
+                                        <textarea id="tx-json" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 h-32 font-mono text-xs" placeholder='{"kind":{"Transfer":{...}}, ...}'></textarea>
+                                    </div>
+                                    <button onclick="signAndSubmit()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium">
+                                        <i class="fas fa-signature mr-2"></i>Sign & Submit TX
+                                    </button>
+                                </div>
+                                <div id="tx-submit-output" class="output-box hidden mt-4"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // ===== Configuration =====
+        const API_BASE = 'http://127.0.0.1:3000';
+        let currentTab = 'dashboard';
+        let currentWallet = null;
+
+        // ===== Tab Management =====
+        function switchTab(tabName) {
+            // Hide all content
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            
+            // Show selected content
+            const contentEl = document.getElementById(`${tabName}-content`);
+            if (contentEl) {
+                contentEl.classList.remove('hidden');
+            }
+
+            // Update active button
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            event.target.closest('.tab-button')?.classList.add('active');
+
+            // Update page title
+            const titles = {
+                dashboard: 'Dashboard',
+                balance: 'Account Balance',
+                blocks: 'Blocks',
+                transactions: 'Transactions',
+                capsules: 'Smart Contracts',
+                anchors: 'Anchors & Proofs',
+                wallet: 'Wallet'
+            };
+            document.getElementById('pageTitle').textContent = titles[tabName] || 'FlowCortex';
+
+            currentTab = tabName;
+
+            // Close sidebar on mobile
+            const sidebar = document.querySelector('.sidebar');
+            if (window.innerWidth <= 768 && sidebar) {
+                sidebar.classList.add('mobile-hidden');
+            }
+        }
+
+        // ===== API Functions =====
+        async function apiCall(endpoint, options = {}) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    headers: { 'Content-Type': 'application/json' },
+                    ...options
+                });
+                return await response.json();
+            } catch (error) {
+                return { error: error.message };
+            }
+        }
+
+        function displayOutput(elementId, data, show = true) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            el.textContent = JSON.stringify(data, null, 2);
+            if (show) el.classList.remove('hidden');
+        }
+
+        // ===== Balance Tab =====
+        async function queryBalance() {
+            const account = document.getElementById('balance-account').value || 'admin';
+            const token = document.getElementById('balance-token').value || 'proof';
+            const data = await apiCall(`/balance/${account}/${token}`);
+            displayOutput('balance-output', data);
+        }
+
+        // ===== Blocks Tab =====
+        async function queryBlocks() {
+            const data = await apiCall('/blocks');
+            displayOutput('blocks-output', data);
+        }
+
+        async function createBlock() {
+            const data = await apiCall('/block', { method: 'POST' });
+            displayOutput('blocks-output', data);
+        }
+
+        // ===== Transactions Tab =====
+        async function queryPool() {
+            const data = await apiCall('/pool');
+            displayOutput('pool-output', data);
+        }
+
+        async function querySnapshot() {
+            const data = await apiCall('/snapshot');
+            displayOutput('snapshot-output', data);
+        }
+
+        // ===== Capsules Tab =====
+        async function uploadCapsule() {
+            const id = document.getElementById('capsule-id').value;
+            const code = document.getElementById('capsule-code').value;
+            const data = await apiCall('/capsule', {
+                method: 'POST',
+                body: JSON.stringify({ id, code })
+            });
+            displayOutput('capsule-upload-output', data);
+        }
+
+        async function listCapsules() {
+            const data = await apiCall('/capsule');
+            displayOutput('capsules-output', data);
+        }
+
+        async function invokeCapsule() {
+            const id = document.getElementById('invoke-id').value;
+            const input = document.getElementById('invoke-input').value;
+            const data = await apiCall(`/capsule/${encodeURIComponent(id)}/invoke`, {
+                method: 'POST',
+                body: JSON.stringify({ input })
+            });
+            displayOutput('capsule-invoke-output', data);
+        }
+
+        // ===== Anchors Tab =====
+        async function submitAnchor() {
+            const id = document.getElementById('anchor-id').value;
+            const proof = document.getElementById('anchor-proof').value;
+            const tx = {
+                kind: { AnchorProof: { id, proof: atob(proof) } },
+                rw_set: { reads: [], writes: [] },
+                proof: null
+            };
+            document.getElementById('tx-json').value = JSON.stringify(tx, null, 2);
+            displayOutput('anchor-submit-output', { status: 'TX prepared - use Wallet tab to sign' });
+        }
+
+        async function listAnchors() {
+            const data = await apiCall('/anchors');
+            displayOutput('anchor-query-output', data);
+        }
+
+        async function getAnchor() {
+            const id = document.getElementById('get-anchor-id').value;
+            const data = await apiCall(`/anchor/${encodeURIComponent(id)}`);
+            displayOutput('anchor-query-output', data);
+        }
+
+        // ===== Wallet Tab =====
+        function connectWallet() {
+            const pubkey = document.getElementById('wallet-pubkey').value.trim();
+            const privkey = document.getElementById('wallet-privkey').value.trim();
+            
+            if (!pubkey || !privkey) {
+                displayOutput('wallet-status', { error: 'Both keys required' });
+                return;
+            }
+
+            try {
+                currentWallet = {
+                    pubkey: hexToBytes(pubkey),
+                    privkey: hexToBytes(privkey)
+                };
+                document.getElementById('wallet-connected').style.display = 'block';
+                displayOutput('wallet-status', { status: 'Wallet connected successfully' });
+            } catch (e) {
+                displayOutput('wallet-status', { error: 'Invalid hex format: ' + e.message });
+            }
+        }
+
+        async function signAndSubmit() {
+            if (!currentWallet) {
+                displayOutput('tx-submit-output', { error: 'Wallet not connected' });
+                return;
+            }
+
+            const txJson = document.getElementById('tx-json').value.trim();
+            if (!txJson) {
+                displayOutput('tx-submit-output', { error: 'No transaction provided' });
+                return;
+            }
+
+            try {
+                const tx = JSON.parse(txJson);
+                const sig = nacl.sign.detached(
+                    new Uint8Array(new TextEncoder().encode(JSON.stringify(tx))),
+                    currentWallet.privkey
+                );
+
+                const request = {
+                    caller: tx.kind?.Transfer?.from || tx.kind?.Mint?.to || 'unknown',
+                    pubkey: Array.from(currentWallet.pubkey),
+                    signature: Array.from(sig),
+                    tx
+                };
+
+                const data = await apiCall('/tx', {
+                    method: 'POST',
+                    body: JSON.stringify(request)
+                });
+                displayOutput('tx-submit-output', data);
+            } catch (e) {
+                displayOutput('tx-submit-output', { error: e.message });
+            }
+        }
+
+        // ===== Utilities =====
+        function hexToBytes(hex) {
+            if (hex.startsWith('0x')) hex = hex.slice(2);
+            if (hex.length % 2) throw new Error('Odd hex length');
+            const bytes = new Uint8Array(hex.length / 2);
+            for (let i = 0; i < bytes.length; i++) {
+                bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+            }
+            return bytes;
+        }
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+        }
+
+        async function refreshAll() {
+            const updates = [];
+            
+            // Refresh dashboard stats
+            const blocks = await apiCall('/blocks');
+            const snapshot = await apiCall('/snapshot');
+            const pool = await apiCall('/pool');
+            const capsules = await apiCall('/capsule');
+
+            if (!blocks.error) {
+                document.getElementById('stat-blocks').textContent = blocks.length || 0;
+            }
+            if (!snapshot.error) {
+                const root = snapshot.root || '-';
+                document.getElementById('stat-root').textContent = root.substring(0, 12) + '...';
+            }
+            if (!pool.error) {
+                document.getElementById('stat-pending').textContent = (pool.pending || []).length;
+            }
+            if (!capsules.error) {
+                document.getElementById('stat-capsules').textContent = (capsules.capsules || []).length;
+            }
+        }
+
+        // ===== Sidebar Toggle =====
+        document.getElementById('toggleSidebar')?.addEventListener('click', () => {
+            const sidebar = document.querySelector('.sidebar');
+            sidebar?.classList.toggle('mobile-hidden');
+        });
+
+        // Close sidebar when clicking outside
+        document.addEventListener('click', (e) => {
+            const sidebar = document.querySelector('.sidebar');
+            const toggleBtn = document.getElementById('toggleSidebar');
+            if (window.innerWidth <= 768 && sidebar && !sidebar.contains(e.target) && !toggleBtn.contains(e.target)) {
+                sidebar.classList.add('mobile-hidden');
+            }
+        });
+
+        // ===== Status Indicator =====
+        async function updateStatus() {
+            try {
+                await fetch(`${API_BASE}/blocks`);
+                document.getElementById('status').innerHTML = '<span class="status-badge success"><i class="fas fa-check-circle mr-1"></i> Connected</span>';
+            } catch {
+                document.getElementById('status').innerHTML = '<span class="status-badge error"><i class="fas fa-exclamation-circle mr-1"></i> Offline</span>';
+            }
+        }
+
+        // ===== Initialization =====
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load theme preference
+            if (localStorage.getItem('theme') === 'dark') {
+                document.documentElement.classList.add('dark');
+            }
+
+            // Initial status check
+            updateStatus();
+            setInterval(updateStatus, 5000);
+
+            // Initial dashboard load
+            refreshAll();
+            setInterval(refreshAll, 10000);
+        });
+
+        // Prevent default form submission
+        document.querySelectorAll('form').forEach(form => {
+            form.addEventListener('submit', e => e.preventDefault());
+        });
+    </script>
+</body>
+</html>

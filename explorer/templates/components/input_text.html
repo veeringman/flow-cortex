@@ -1,0 +1,17 @@
+<!-- Text Input -->
+<div class="mb-4">
+    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        {% if label %}{{ label }}{% endif %}
+        {% if required %}<span class="text-red-500">*</span>{% endif %}
+    </label>
+    <input 
+        type="text"
+        id="{{ id }}" 
+        class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+        placeholder="{{ placeholder }}"
+        {% if disabled %}disabled{% endif %}
+        />
+    {% if help_text %}
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ help_text }}</p>
+    {% endif %}
+</div>

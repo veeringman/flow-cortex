@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block page_title %}Account Balance{% endblock %}
+{% block page_subtitle %}Check account balances and holdings{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Query Form -->
+    <div class="lg:col-span-1">
+        <div class="card p-6">
+            <h3 class="text-lg font-bold mb-4">
+                <i class="fas fa-search mr-2"></i>Query Balance
+            </h3>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Account
+                    <span class="text-red-500">*</span>
+                </label>
+                <input 
+                    type="text"
+                    id="balance-account"
+                    class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                    placeholder="admin" 
+                    />
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Account identifier</p>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Token
+                    <span class="text-red-500">*</span>
+                </label>
+                <select id="balance-token" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+                    <option value="">-- Select Token --</option>
+                    <option value="USD">USD</option>
+                    <option value="ETH">ETH</option>
+                    <option value="FLOW">FLOW</option>
+                    <option value="BTC">BTC</option>
+                </select>
+            </div>
+
+            <button onclick="queryBalance()" class="button-primary w-full px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                <i class="fas fa-search mr-2"></i>Query Balance
+            </button>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div class="lg:col-span-2">
+        <div class="card p-6">
+            <h3 class="text-lg font-bold mb-4">
+                <i class="fas fa-coins mr-2"></i>Results
+            </h3>
+            <div id="balance-output" class="output-box hidden mt-4"></div>
+            <div id="balance-result" class="text-gray-600 dark:text-gray-400">
+                <p class="text-center py-8">
+                    <i class="fas fa-inbox text-2xl opacity-50"></i>
+                    <br/>
+                    <span class="text-sm">Enter account and token to query balance</span>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

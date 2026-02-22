@@ -1,9 +1,9 @@
 use crate::rpc::SharedNode;
 use crate::types::{Token, SignedTransaction};
-use base64::Engine;
 use tonic::{Request, Response, Status};
 use hex;
 use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
 
 pub mod proto {
     tonic::include_proto!("l1");
@@ -52,10 +52,7 @@ impl L1 for L1Service {
         let mut n = self.node.lock().unwrap();
         match n.submit_signed_transaction(stx) {
             Ok(()) => Ok(Response::new(TxResponse { success: true, error: "".into() })),
-            Err(e) => {
-                let error: String = e.to_string();
-                Ok(Response::new(TxResponse { success: false, error }))
-            }
+            Err(e) => Ok(Response::new(TxResponse { success: false, error: e.to_string() })),
         }
     }
 
@@ -92,39 +89,6 @@ impl L1 for L1Service {
             Ok(Response::new(AnchorResponse { id, proof_base64: STANDARD.encode(data), error: "".into() }))
         } else {
             Ok(Response::new(AnchorResponse { id, proof_base64: "".into(), error: "not found".into() }))
-        }
-    }
-
-    async fn create_block(&self, _req: Request<Empty>) -> Result<Response<Block>, Status> {
-        let mut n = self.node.lock().unwrap();
-        let block = n.create_block();
-        let tx_json = serde_json::to_string(&block.transactions).map_err(|e| Status::internal(e.to_string()))?;
-        Ok(Response::new(Block { height: block.height, txs_json: tx_json }))
-    }
-
-    async fn upload_capsule(&self, req: Request<CapsuleUploadRequest>) -> Result<Response<CapsuleUploadResponse>, Status> {
-        let r = req.into_inner();
-        let mut n = self.node.lock().unwrap();
-        match n.store_capsule(&r.id, r.code) {
-            Ok(()) => Ok(Response::new(CapsuleUploadResponse { success: true, error: "".into() })),
-            Err(e) => {
-                let error: String = e.to_string();
-                Ok(Response::new(CapsuleUploadResponse { success: false, error }))
-            }
-        }
-    }
-
-    async fn list_capsules(&self, _req: Request<Empty>) -> Result<Response<CapsuleListResponse>, Status> {
-        let n = self.node.lock().unwrap();
-        Ok(Response::new(CapsuleListResponse { capsules: n.capsules.keys().cloned().collect() }))
-    }
-
-    async fn invoke_capsule(&self, req: Request<CapsuleInvokeRequest>) -> Result<Response<CapsuleInvokeResponse>, Status> {
-        let r = req.into_inner();
-        let n = self.node.lock().unwrap();
-        match n.execute_capsule(&r.id, &r.input) {
-            Ok(output) => Ok(Response::new(CapsuleInvokeResponse { output, error: "".into() })),
-            Err(e) => Ok(Response::new(CapsuleInvokeResponse { output: Vec::new(), error: e })),
         }
     }
 }

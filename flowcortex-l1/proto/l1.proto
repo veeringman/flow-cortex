@@ -22,23 +22,12 @@ message AnchorRequest { string id = 1; }
 message AnchorListResponse { repeated string ids = 1; }
 message AnchorResponse { string id = 1; string proof_base64 = 2; string error = 3; }
 
-message CapsuleUploadRequest { string id = 1; bytes code = 2; }
-message CapsuleUploadResponse { bool success = 1; string error = 2; }
-message CapsuleListResponse { repeated string capsules = 1; }
-message CapsuleInvokeRequest { string id = 1; bytes input = 2; }
-message CapsuleInvokeResponse { bytes output = 1; string error = 2; }
-
 service L1 {
     rpc GetBalance(BalanceRequest) returns (BalanceResponse);
     rpc SubmitTx(TxRequest) returns (TxResponse);
     rpc ListPool(Empty) returns (PoolResponse);
     rpc ListBlocks(Empty) returns (BlocksResponse);
     rpc Snapshot(Empty) returns (SnapshotResponse);
-    rpc CreateBlock(Empty) returns (Block);
     rpc ListAnchors(Empty) returns (AnchorListResponse);
     rpc GetAnchor(AnchorRequest) returns (AnchorResponse);
-    // capsule management
-    rpc UploadCapsule(CapsuleUploadRequest) returns (CapsuleUploadResponse);
-    rpc ListCapsules(Empty) returns (CapsuleListResponse);
-    rpc InvokeCapsule(CapsuleInvokeRequest) returns (CapsuleInvokeResponse);
 }

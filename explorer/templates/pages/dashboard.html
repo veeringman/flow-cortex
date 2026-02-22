@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}Network Overview & Statistics{% endblock %}
+
+{% block content %}
+<!-- Statistics Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <!-- Total Blocks -->
+    <div class="card p-4">
+        <div class="flex justify-between items-start">
+            <div>
+                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Blocks</p>
+                <p class="text-3xl font-bold mt-1" id="stat-blocks">-</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Network height</p>
+            </div>
+            <i class="fas fa-cube text-3xl text-blue-500 opacity-20"></i>
+        </div>
+    </div>
+
+    <!-- Block Root -->
+    <div class="card p-4">
+        <div class="flex justify-between items-start">
+            <div>
+                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Block Root</p>
+                <p class="text-xs font-mono mt-1" id="stat-root">-</p>
+            </div>
+            <i class="fas fa-leaf text-3xl text-green-500 opacity-20"></i>
+        </div>
+    </div>
+
+    <!-- Pending Transactions -->
+    <div class="card p-4">
+        <div class="flex justify-between items-start">
+            <div>
+                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Pending TXs</p>
+                <p class="text-3xl font-bold mt-1" id="stat-pending">-</p>
+            </div>
+            <i class="fas fa-hourglass text-3xl text-orange-500 opacity-20"></i>
+        </div>
+    </div>
+
+    <!-- Smart Contracts -->
+    <div class="card p-4">
+        <div class="flex justify-between items-start">
+            <div>
+                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Capsules</p>
+                <p class="text-3xl font-bold mt-1" id="stat-capsules">-</p>
+            </div>
+            <i class="fas fa-box text-3xl text-purple-500 opacity-20"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- Block Production Chart -->
+    <div class="card p-6">
+        <h3 class="text-lg font-bold mb-4">Block Production</h3>
+        <div class="relative h-80">
+            <canvas id="blockChart"></canvas>
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-4">Last 10 blocks</p>
+    </div>
+
+    <!-- Transaction Types Chart -->
+    <div class="card p-6">
+        <h3 class="text-lg font-bold mb-4">Transaction Types</h3>
+        <div class="relative h-80">
+            <canvas id="txTypeChart"></canvas>
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-4">Distribution by type</p>
+    </div>
+</div>
+
+<!-- Recent Blocks -->
+<div class="card p-6">
+    <h3 class="text-lg font-bold mb-4">
+        <i class="fas fa-history mr-2"></i>Recent Blocks
+    </h3>
+    <div class="overflow-x-auto">
+        <table id="recentBlocksTable" class="w-full text-sm">
+            <thead class="border-b border-gray-200 dark:border-gray-700">
+                <tr>
+                    <th class="text-left py-3 px-4 font-semibold">Height</th>
+                    <th class="text-left py-3 px-4 font-semibold">Hash</th>
+                    <th class="text-left py-3 px-4 font-semibold">Transactions</th>
+                    <th class="text-left py-3 px-4 font-semibold">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td colspan="4" class="py-4 px-4 text-center text-gray-500">
+                        <i class="fas fa-spinner fa-spin"></i> Loading blocks...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+<!-- Confirmation Modal -->
+<div id="confirmModal" class="modal hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm mx-4">
+        <h3 class="text-lg font-bold mb-4" id="confirmTitle">Confirm Action</h3>
+        <p class="text-gray-600 dark:text-gray-400 mb-6" id="confirmMessage">Are you sure?</p>
+        <div class="flex gap-4 justify-end">
+            <button onclick="closeModal('confirmModal')" class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                Cancel
+            </button>
+            <button onclick="confirmAction()" class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition">
+                Confirm
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Success Toast -->
+<div id="successToast" class="toast hidden fixed bottom-4 right-4 bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg z-50">
+    <i class="fas fa-check-circle mr-2"></i><span id="successMessage">Success!</span>
+</div>
+
+<!-- Error Toast -->
+<div id="errorToast" class="toast hidden fixed bottom-4 right-4 bg-red-500 text-white px-4 py-3 rounded-lg shadow-lg z-50">
+    <i class="fas fa-exclamation-circle mr-2"></i><span id="errorMessage">Error!</span>
+</div>
+
+<!-- Warning Toast -->
+<div id="warningToast" class="toast hidden fixed bottom-4 right-4 bg-yellow-500 text-white px-4 py-3 rounded-lg shadow-lg z-50">
+    <i class="fas fa-exclamation-triangle mr-2"></i><span id="warningMessage">Warning!</span>
+</div>
+
+<style>
+    .modal {
+        animation: fadeIn 0.3s ease;
+    }
+
+    .modal.hidden {
+        display: none !important;
+    }
+
+    .toast {
+        animation: slideIn 0.3s ease;
+    }
+
+    .toast.hidden {
+        display: none !important;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+</style>

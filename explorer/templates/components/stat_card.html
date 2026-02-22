@@ -1,0 +1,13 @@
+<!-- Stat Card with Icon -->
+<div class="card p-4">
+    <div class="flex justify-between items-start">
+        <div>
+            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">{{ label }}</p>
+            <p class="text-3xl font-bold mt-1" id="{{ id }}">{{ value }}</p>
+            {% if change %}
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ change }}</p>
+            {% endif %}
+        </div>
+        <i class="fas {{ icon }} text-3xl text-blue-500 opacity-20"></i>
+    </div>
+</div>

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block page_title %}Smart Contracts{% endblock %}
+{% block page_subtitle %}Deploy and execute WASM capsules{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Upload Capsule -->
+    <div class="card p-6">
+        <h3 class="text-lg font-bold mb-4">
+            <i class="fas fa-upload mr-2"></i>Upload Capsule
+        </h3>
+
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Capsule ID
+                <span class="text-red-500">*</span>
+            </label>
+            <input 
+                type="text"
+                id="capsule-id"
+                class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                placeholder="my_capsule" 
+                />
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Code (Base64)
+                <span class="text-red-500">*</span>
+            </label>
+            <textarea 
+                id="capsule-code"
+                class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 h-32 font-mono text-xs"
+                placeholder="Base64 encoded WASM or bytecode"
+                ></textarea>
+        </div>
+
+        <button onclick="uploadCapsule()" class="button-primary w-full px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+            <i class="fas fa-upload mr-2"></i>Upload
+        </button>
+
+        <div id="capsule-upload-output" class="output-box hidden mt-4"></div>
+    </div>
+
+    <!-- Invoke Capsule -->
+    <div class="card p-6">
+        <h3 class="text-lg font-bold mb-4">
+            <i class="fas fa-play mr-2"></i>Invoke Capsule
+        </h3>
+
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Capsule ID
+                <span class="text-red-500">*</span>
+            </label>
+            <input 
+                type="text"
+                id="invoke-id"
+                class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                placeholder="capsule_id" 
+                />
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Input (Base64)
+            </label>
+            <input 
+                type="text"
+                id="invoke-input"
+                class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                placeholder="base64 input" 
+                />
+        </div>
+
+        <button onclick="invokeCapsule()" class="button-primary w-full px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+            <i class="fas fa-play mr-2"></i>Invoke
+        </button>
+
+        <div id="capsule-invoke-output" class="output-box hidden mt-4"></div>
+    </div>
+
+    <!-- List Capsules -->
+    <div class="card p-6">
+        <h3 class="text-lg font-bold mb-4">
+            <i class="fas fa-list mr-2"></i>Deployed Capsules
+        </h3>
+
+        <button onclick="listCapsules()" class="button-primary w-full px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition mb-4">
+            <i class="fas fa-refresh mr-2"></i>Load Capsules
+        </button>
+
+        <div id="capsulesList" class="space-y-2 max-h-96 overflow-y-auto">
+            <div class="text-gray-600 dark:text-gray-400 text-center py-4">
+                <i class="fas fa-inbox text-lg opacity-50"></i>
+                <br/>
+                <span class="text-xs">Click "Load Capsules" to view</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Capsules Output -->
+<div class="card p-6">
+    <h3 class="text-lg font-bold mb-4">
+        <i class="fas fa-terminal mr-2"></i>Output
+    </h3>
+    <div id="capsules-output" class="output-box hidden mt-4"></div>
+    <div id="capsulesEmpty" class="text-gray-600 dark:text-gray-400 text-center py-8">
+        <i class="fas fa-inbox text-2xl opacity-50"></i>
+        <br/>
+        <span class="text-sm">Operation results will appear here</span>
+    </div>
+</div>
+{% endblock %}

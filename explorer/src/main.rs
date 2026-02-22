@@ -4,6 +4,7 @@ use axum::{
     Router,
 };
 use askama::Template;
+use tower_http::services::ServeDir;
 
 #[derive(Template)]
 #[template(path = "index.html")]
@@ -17,7 +18,9 @@ async fn index() -> impl IntoResponse {
 // simple static files handler; askama templates are baked at compile time
 #[tokio::main]
 async fn main() {
-    let app = Router::new().route("/", get(index));
+    let app = Router::new()
+        .route("/", get(index))
+        .nest_service("/static", ServeDir::new("static"));
     println!("Explorer UI listening on http://127.0.0.1:4000");
     let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:4000".to_string());
     println!("Explorer UI listening on http://{}", bind_addr);

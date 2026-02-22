@@ -1,0 +1,10 @@
+<!-- Button -->
+<button 
+    id="{{ id | default('') }}"
+    onclick="{{ onclick }}" 
+    class="button-primary px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed {% if full_width %}w-full{% endif %}"
+    {% if disabled %}disabled{% endif %}
+    >
+    {% if icon %}<i class="fas {{ icon }} mr-2"></i>{% endif %}
+    {{ label }}
+</button>

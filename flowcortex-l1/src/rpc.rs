@@ -343,6 +343,18 @@ async fn invoke_capsule(
 pub fn make_router(node: SharedNode) -> Router {
     // middleware to inject permissive CORS headers
     async fn cors(req: Request<Body>, next: Next) -> Response {
+        // Handle preflight OPTIONS requests
+        if req.method() == axum::http::Method::OPTIONS {
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header("access-control-allow-origin", "*")
+                .header("access-control-allow-methods", "*")
+                .header("access-control-allow-headers", "*")
+                .header("access-control-max-age", "3600")
+                .body(Body::empty())
+                .unwrap();
+        }
+        
         let mut res = next.run(req).await;
         let headers = res.headers_mut();
         headers.insert("access-control-allow-origin", HeaderValue::from_static("*"));
