@@ -5,16 +5,16 @@
       "test2": {
         "proof": 25
       },
-      "alice": {
-        "proof": 3601
-      },
-      "test_user": {},
       "test1": {
         "proof": 75
       },
       "bob": {
         "proof": 400
-      }
+      },
+      "alice": {
+        "proof": 3601
+      },
+      "test_user": {}
     },
     "admin": "admin"
   },
@@ -828,6 +828,34 @@
           ]
         }
       ]
+    },
+    {
+      "height": 7,
+      "transactions": []
+    },
+    {
+      "height": 8,
+      "transactions": []
+    },
+    {
+      "height": 9,
+      "transactions": []
+    },
+    {
+      "height": 10,
+      "transactions": []
+    },
+    {
+      "height": 11,
+      "transactions": []
+    },
+    {
+      "height": 12,
+      "transactions": []
+    },
+    {
+      "height": 13,
+      "transactions": []
     }
   ],
   "capsules": {

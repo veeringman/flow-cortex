@@ -179,7 +179,8 @@ async function loadDashboard() {
             state.prevTxs = state.stats.txs;
             state.stats.txs = blocks.reduce((sum, b) => {
                 try {
-                    return sum + JSON.parse(b.txs_json || '[]').length;
+                    const txs = Array.isArray(b.transactions) ? b.transactions : JSON.parse(b.txs_json || '[]');
+                    return sum + txs.length;
                 } catch {
                     return sum;
                 }
@@ -266,7 +267,7 @@ function updateRecentBlocks(blocks) {
     }
     
     container.innerHTML = blocks.map(block => {
-        const txs = JSON.parse(block.txs_json || '[]');
+        const txs = Array.isArray(block.transactions) ? block.transactions : JSON.parse(block.txs_json || '[]');
         return `
             <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer" 
                  onclick='showModal("Block #${block.height}", ${JSON.stringify(block).replace(/'/g, '&#39;')})'>
@@ -359,7 +360,7 @@ async function queryBlocks() {
                     </thead>
                     <tbody>
                         ${data.reverse().map(block => {
-                            const txs = JSON.parse(block.txs_json || '[]');
+                            const txs = Array.isArray(block.transactions) ? block.transactions : JSON.parse(block.txs_json || '[]');
                             return `
                                 <tr onclick='showModal("Block #${block.height}", ${JSON.stringify(block).replace(/'/g, '&#39;')})'>
                                     <td class="font-bold text-blue-600">#${block.height}</td>

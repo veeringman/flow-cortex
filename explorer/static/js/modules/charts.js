@@ -95,7 +95,8 @@ export function updateBlockChart(blocks) {
     const labels = last10.map(b => `#${b.height}`);
     const data = last10.map(b => {
         try {
-            return JSON.parse(b.txs_json || '[]').length;
+            const txs = Array.isArray(b.transactions) ? b.transactions : JSON.parse(b.txs_json || '[]');
+            return txs.length;
         } catch {
             return 0;
         }
@@ -171,7 +172,7 @@ export function updateTxTypeChart(blocks) {
     
     blocks.forEach(block => {
         try {
-            const txs = JSON.parse(block.txs_json || '[]');
+            const txs = Array.isArray(block.transactions) ? block.transactions : JSON.parse(block.txs_json || '[]');
             txs.forEach(tx => {
                 const kind = tx.kind ? Object.keys(tx.kind)[0] : 'Other';
                 if (typeCounts[kind] !== undefined) {
