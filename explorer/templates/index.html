@@ -6,6 +6,7 @@
     <title>FlowCortex Explorer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -22,6 +23,7 @@
 
         .sidebar {
             transition: transform 0.3s ease, width 0.3s ease;
+            position: relative;
         }
 
         .sidebar.mobile-hidden {
@@ -29,21 +31,23 @@
         }
 
         @media (max-width: 768px) {
-            .sidebar.mobile-hidden {
+            .sidebar {
                 position: fixed;
                 left: 0;
                 top: 0;
                 z-index: 50;
-                transform: translateX(-100%);
-            }
-
-            .sidebar {
                 width: 100%;
                 max-width: 280px;
+                height: 100vh;
+            }
+
+            .sidebar.mobile-hidden {
+                transform: translateX(-100%);
             }
 
             .content {
                 width: 100%;
+                margin-left: 0;
             }
         }
 
@@ -262,8 +266,11 @@
                 <button onclick="toggleTheme()" class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm">
                     <i class="fas fa-moon mr-2"></i>Dark Mode
                 </button>
+                <button onclick="showModal('apiConfigModal')" class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm">
+                    <i class="fas fa-cog mr-2"></i>API Config
+                </button>
                 <div class="text-xs text-gray-500 dark:text-gray-400 p-2 bg-gray-100 dark:bg-gray-700 rounded">
-                    <p><strong>API:</strong> http://127.0.0.1:3000</p>
+                    <p><strong>API:</strong> <span id="api-endpoint">http://127.0.0.1:3000</span></p>
                     <p id="status" class="mt-1"><span class="loading"></span> Connecting...</p>
                 </div>
             </div>
@@ -639,17 +646,65 @@
         async function queryBlocks() {
             const data = await apiCall('/blocks');
             displayOutput('blocks-output', data);
+            if (!data.error && Array.isArray(data) && data.length > 0) {
+                // Also update blocks list view if we have the container
+                const blocksList = document.getElementById('blocks-list');
+                if (blocksList) {
+                    blocksList.innerHTML = '<div class="space-y-2">' + data.reverse().map(block => `
+                        <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                            <div class="flex justify-between items-center">
+                                <span class="font-semibold">Block #${block.height}</span>
+                                <span class="text-sm text-gray-500">${(block.transactions || []).length} tx(s)</span>
+                            </div>
+                        </div>
+                    `).join('') + '</div>';
+                }
+            }
         }
 
         async function createBlock() {
             const data = await apiCall('/block', { method: 'POST' });
             displayOutput('blocks-output', data);
+            if (!data.error) {
+                alert('Block created successfully!');
+                // Refresh blocks and dashboard
+                setTimeout(() => {
+                    queryBlocks();
+                    refreshAll();
+                }, 500);
+            }
         }
 
         // ===== Transactions Tab =====
         async function queryPool() {
             const data = await apiCall('/pool');
-            displayOutput('pool-output', data);
+            if (!data.error && data.pending) {
+                const pending = data.pending;
+                displayOutput('pool-output', {
+                    count: pending.length,
+                    transactions: pending
+                });
+                
+                // Update pool list if container exists
+                const poolList = document.getElementById('pool-list');
+                if (poolList && pending.length > 0) {
+                    poolList.innerHTML = '<div class="space-y-2">' + pending.map((tx, idx) => {
+                        const kind = tx.kind ? Object.keys(tx.kind)[0] : 'Unknown';
+                        return `
+                            <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                                <div class="flex justify-between items-center">
+                                    <span class="font-semibold">TX #${idx + 1}</span>
+                                    <span class="text-sm px-2 py-1 bg-blue-100 dark:bg-blue-900 rounded">${kind}</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('') + '</div>';
+                } else if (poolList) {
+                    poolList.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">No pending transactions</p>';
+                }
+            } else {
+                displayOutput('pool-output', data);
+            }
         }
 
         async function querySnapshot() {
@@ -661,16 +716,45 @@
         async function uploadCapsule() {
             const id = document.getElementById('capsule-id').value;
             const code = document.getElementById('capsule-code').value;
+            
+            if (!id || !code) {
+                displayOutput('capsule-upload-output', { error: 'ID and code are required' });
+                return;
+            }
+            
             const data = await apiCall('/capsule', {
                 method: 'POST',
                 body: JSON.stringify({ id, code })
             });
             displayOutput('capsule-upload-output', data);
+            
+            if (!data.error) {
+                alert('Capsule uploaded successfully!');
+                // Clear inputs
+                document.getElementById('capsule-id').value = '';
+                document.getElementById('capsule-code').value = '';
+                // Refresh capsules list
+                setTimeout(listCapsules, 500);
+            }
         }
 
         async function listCapsules() {
             const data = await apiCall('/capsule');
             displayOutput('capsules-output', data);
+            
+            if (!data.error && data.capsules && data.capsules.length > 0) {
+                const output = document.getElementById('capsules-output');
+                if (output) {
+                    output.innerHTML = '<div class="space-y-2">' + data.capsules.map(id => `
+                        <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg flex justify-between items-center">
+                            <code class="text-sm">${id}</code>
+                            <button onclick="navigator.clipboard.writeText('${id}'); alert('Copied!')" class="text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    `).join('') + '</div>';
+                }
+            }
         }
 
         async function invokeCapsule() {
@@ -687,13 +771,34 @@
         async function submitAnchor() {
             const id = document.getElementById('anchor-id').value;
             const proof = document.getElementById('anchor-proof').value;
-            const tx = {
-                kind: { AnchorProof: { id, proof: atob(proof) } },
-                rw_set: { reads: [], writes: [] },
-                proof: null
-            };
-            document.getElementById('tx-json').value = JSON.stringify(tx, null, 2);
-            displayOutput('anchor-submit-output', { status: 'TX prepared - use Wallet tab to sign' });
+            
+            if (!id || !proof) {
+                displayOutput('anchor-submit-output', { error: 'ID and proof are required' });
+                return;
+            }
+            
+            try {
+                // Convert base64 to byte array
+                const proofBytes = atob(proof);
+                const proofArray = Array.from(proofBytes).map(c => c.charCodeAt(0));
+                
+                const tx = {
+                    kind: { AnchorProof: { id, proof: proofArray } },
+                    rw_set: { reads: [], writes: [] },
+                    proof: null
+                };
+                document.getElementById('tx-json').value = JSON.stringify(tx, null, 2);
+                displayOutput('anchor-submit-output', { status: 'TX prepared - use Wallet tab to sign' });
+                
+                // Suggest switching to wallet tab
+                setTimeout(() => {
+                    if (confirm('Transaction prepared. Switch to Wallet tab to sign and submit?')) {
+                        switchTab('wallet');
+                    }
+                }, 500);
+            } catch (e) {
+                displayOutput('anchor-submit-output', { error: 'Invalid base64 proof: ' + e.message });
+            }
         }
 
         async function listAnchors() {
@@ -790,17 +895,18 @@
             const pool = await apiCall('/pool');
             const capsules = await apiCall('/capsule');
 
-            if (!blocks.error) {
+            if (!blocks.error && Array.isArray(blocks)) {
                 document.getElementById('stat-blocks').textContent = blocks.length || 0;
             }
-            if (!snapshot.error) {
+            if (!snapshot.error && snapshot.root) {
                 const root = snapshot.root || '-';
                 document.getElementById('stat-root').textContent = root.substring(0, 12) + '...';
             }
-            if (!pool.error) {
-                document.getElementById('stat-pending').textContent = (pool.pending || []).length;
+            if (!pool.error && pool.pending) {
+                const pending = Array.isArray(pool.pending) ? pool.pending : [];
+                document.getElementById('stat-pending').textContent = pending.length;
             }
-            if (!capsules.error) {
+            if (!capsules.error && capsules.capsules) {
                 document.getElementById('stat-capsules').textContent = (capsules.capsules || []).length;
             }
         }
@@ -850,6 +956,92 @@
         document.querySelectorAll('form').forEach(form => {
             form.addEventListener('submit', e => e.preventDefault());
         });
+
+        // ===== Modal Management =====
+        function showModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        // ===== API Config =====
+        function updateApiBase() {
+            const input = document.getElementById('apiBaseInput');
+            const newUrl = input.value.trim();
+
+            if (!newUrl) {
+                alert('Please enter a valid API URL');
+                return;
+            }
+
+            // Test the connection
+            fetch(`${newUrl}/blocks`)
+                .then(() => {
+                    // Update global API base
+                    window.API_BASE = newUrl;
+                    document.getElementById('api-endpoint').textContent = newUrl;
+                    localStorage.setItem('apiBase', newUrl);
+                    alert('API configured: ' + newUrl);
+                    closeModal('apiConfigModal');
+                    // Reload data with new API
+                    refreshAll();
+                })
+                .catch(() => {
+                    alert('Failed to connect to API at ' + newUrl);
+                });
+        }
+
+        // Load saved API config
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedApiBase = localStorage.getItem('apiBase');
+            if (savedApiBase) {
+                window.API_BASE = savedApiBase;
+                document.getElementById('api-endpoint').textContent = savedApiBase;
+                document.getElementById('apiBaseInput').value = savedApiBase;
+            }
+        });
+
+        // Close modal when clicking outside
+        document.addEventListener('click', (e) => {
+            if (e.target.id === 'apiConfigModal') {
+                closeModal('apiConfigModal');
+            }
+        });
     </script>
+
+    <!-- API Config Modal -->
+    <div id=\"apiConfigModal\" class=\"hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50\">
+        <div class=\"bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md mx-4\">
+            <h3 class=\"text-lg font-bold mb-4\">API Configuration</h3>
+            <div class=\"mb-4\">
+                <label class=\"block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2\">API Base URL</label>
+                <input 
+                    type=\"text\"
+                    id=\"apiBaseInput\"
+                    class=\"w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100\"
+                    placeholder=\"http://127.0.0.1:3000\"
+                    />
+                <p class=\"text-xs text-gray-500 dark:text-gray-400 mt-1\">Enter the base URL of your FlowCortex L1 node</p>
+            </div>
+            <div class=\"flex gap-3 justify-end\">
+                <button onclick=\"closeModal('apiConfigModal')\" class=\"px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition\">
+                    Cancel
+                </button>
+                <button onclick=\"updateApiBase()\" class=\"px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition\">
+                    Save
+                </button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
