@@ -147,14 +147,17 @@ async function updateApiBase() {
     // Save to localStorage
     localStorage.setItem('apiBase', newUrl);
     
-    // Test connection
-    updateNetworkStatus();
-    
     // Close modal and show success
     UI.closeModal('apiConfigModal');
     UI.showToast('success', `API configured: ${newUrl}`);
     
     console.log(`✅ API Base updated to: ${newUrl}`);
+    
+    // Reload dashboard data with new API endpoint
+    await loadDashboard();
+    
+    // Test connection
+    updateNetworkStatus();
 }
 
 /**
