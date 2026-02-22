@@ -1,0 +1,15 @@
+[package]
+name = "flowcortex-l1-grpc-client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+tonic = "0.10"
+prost = "0.12"
+prost-types = "0.12"
+hex = "0.4"
+base64 = "0.21"
+
+[build-dependencies]
+tonic-build = "0.10"

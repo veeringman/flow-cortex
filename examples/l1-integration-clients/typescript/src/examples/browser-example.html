@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlowCortex L1 Browser Client</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #1e1e1e;
+      color: #d4d4d4;
+    }
+    
+    h1 {
+      color: #4ec9b0;
+      border-bottom: 2px solid #4ec9b0;
+      padding-bottom: 10px;
+    }
+    
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .section {
+      background: #252525;
+      border: 1px solid #3e3e42;
+      border-radius: 4px;
+      padding: 15px;
+    }
+    
+    .section h2 {
+      color: #9cdcfe;
+      margin-top: 0;
+      font-size: 1.1em;
+    }
+    
+    input, textarea {
+      width: 100%;
+      padding: 8px;
+      margin: 5px 0;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      border: 1px solid #3e3e42;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      box-sizing: border-box;
+    }
+    
+    button {
+      background: #0e639c;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      margin: 5px 5px 5px 0;
+      font-family: 'Courier New', monospace;
+    }
+    
+    button:hover {
+      background: #1177bb;
+    }
+    
+    .output {
+      background: #1e1e1e;
+      border: 1px solid #3e3e42;
+      border-radius: 3px;
+      padding: 10px;
+      margin-top: 10px;
+      max-height: 300px;
+      overflow-y: auto;
+      color: #ce9178;
+    }
+    
+    .success {
+      color: #6a9955;
+    }
+    
+    .error {
+      color: #f48771;
+    }
+    
+    .info {
+      color: #9cdcfe;
+    }
+  </style>
+</head>
+<body>
+  <h1>FlowCortex L1 Browser Client</h1>
+  
+  <div class="container">
+    <!-- Account Management -->
+    <div class="section">
+      <h2>Account Management</h2>
+      <input type="text" id="accountName" placeholder="Account name" value="alice">
+      <button onclick="createAccount()">Create Account</button>
+      <button onclick="getBalance()">Get Balance</button>
+      <select id="tokenSelect" style="width: 100%; padding: 8px; margin: 5px 0;">
+        <option value="Proof">Proof</option>
+        <option value="FloweR">FloweR</option>
+      </select>
+      <div class="output" id="accountOutput"></div>
+    </div>
+
+    <!-- Transaction Operations -->
+    <div class="section">
+      <h2>Transactions</h2>
+      <input type="text" id="fromAccount" placeholder="From account" value="admin">
+      <input type="text" id="toAccount" placeholder="To account" value="alice">
+      <input type="number" id="amount" placeholder="Amount" value="100">
+      <select id="transferToken" style="width: 100%; padding: 8px; margin: 5px 0;">
+        <option value="Proof">Proof</option>
+        <option value="FloweR">FloweR</option>
+      </select>
+      <button onclick="transfer()">Transfer Tokens</button>
+      <button onclick="mint()">Mint Tokens</button>
+      <div class="output" id="txOutput"></div>
+    </div>
+
+    <!-- Block Management -->
+    <div class="section">
+      <h2>Blocks</h2>
+      <button onclick="listBlocks()">List Blocks</button>
+      <button onclick="createBlock()">Create Block</button>
+      <button onclick="getSnapshot()">Get Snapshot</button>
+      <div class="output" id="blockOutput"></div>
+    </div>
+
+    <!-- Capsules -->
+    <div class="section">
+      <h2>Capsules</h2>
+      <input type="text" id="capsuleId" placeholder="Capsule ID" value="my_capsule">
+      <textarea id="capsuleCode" placeholder="Capsule code (base64)" rows="4" value="U2FtcGxlIGNhcHN1bGUgY29kZQ=="></textarea>
+      <button onclick="uploadCapsule()">Upload Capsule</button>
+      <button onclick="listCapsules()">List Capsules</button>
+      <button onclick="invokeCapsule()">Invoke Capsule</button>
+      <div class="output" id="capsuleOutput"></div>
+    </div>
+
+    <!-- Anchors -->
+    <div class="section">
+      <h2>Anchors & Pool</h2>
+      <button onclick="listAnchors()">List Anchors</button>
+      <input type="text" id="anchorId" placeholder="Anchor ID">
+      <button onclick="getAnchor()">Get Anchor</button>
+      <button onclick="getPool()">Get Pool</button>
+      <div class="output" id="anchorOutput"></div>
+    </div>
+
+    <!-- Configuration -->
+    <div class="section">
+      <h2>Configuration</h2>
+      <input type="text" id="nodeUrl" placeholder="Node URL" value="http://127.0.0.1:3000">
+      <button onclick="updateNodeUrl()">Update Node URL</button>
+      <div class="output" id="configOutput" class="info">Node URL: http://127.0.0.1:3000</div>
+    </div>
+  </div>
+
+  <script>
+    let nodeUrl = 'http://127.0.0.1:3000';
+
+    function updateNodeUrl() {
+      const newUrl = document.getElementById('nodeUrl').value;
+      nodeUrl = newUrl || 'http://127.0.0.1:3000';
+      document.getElementById('configOutput').innerHTML = `<span class="success">✓ Node URL updated: ${nodeUrl}</span>`;
+    }
+
+    async function apiCall(endpoint, method = 'GET', data = null) {
+      try {
+        const options = {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+        };
+        if (data) {
+          options.body = JSON.stringify(data);
+        }
+        const response = await fetch(`${nodeUrl}${endpoint}`, options);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return await response.json();
+      } catch (error) {
+        throw error;
+      }
+    }
+
+    async function createAccount() {
+      try {
+        const account = document.getElementById('accountName').value;
+        await apiCall('/account', 'POST', { account });
+        document.getElementById('accountOutput').innerHTML = `<span class="success">✓ Account '${account}' created</span>`;
+      } catch (error) {
+        document.getElementById('accountOutput').innerHTML = `<span class="error">✗ Error: ${error.message}</span>`;
+      }
+    }
+
+    async function getBalance() {
+      try {
+        const account = document.getElementById('accountName').value;
+        const token = document.getElementById('tokenSelect').value;
+        const result = await apiCall(`/balance/${account}/${token}`);
+        document.getElementById('accountOutput').innerHTML = `
+          <span class="info">Account: ${result.account}<br>
+          Token: ${result.token}<br>
+          Balance: <span class="success">${result.balance}</span></span>
+        `;
+      } catch (error) {
+        document.getElementById('accountOutput').innerHTML = `<span class="error">✗ Error: ${error.message}</span>`;
+      }
+    }
+
+    async function transfer() {
+      try {
+        const from = document.getElementById('fromAccount').value;
+        const to = document.getElementById('toAccount').value;
+        const amount = parseInt(document.getElementById('amount').value);
+        const token = document.getElementById('transferToken').value;
+        
+        await apiCall('/transfer', 'POST', { from, to, token, amount });
+        document.getElementById('txOutput').innerHTML = `<span class="success">✓ Transferred ${amount} ${token} from ${from} to ${to}</span>`;
+      } catch (error) {
+        document.getElementById('txOutput').innerHTML = `<span class="error">✗ Error: ${error.message}</span>`;
+      }
+    }
+
+    async function mint() {
+      try {
+        const caller = document.getElementById('fromAccount').value;
+        const to = document.getElementById('toAccount').value;
+        const amount = parseInt(document.getElementById('amount').value);
+        const token = document.getElementById('transferToken').value;
+        
+        await apiCall('/mint', 'POST', { caller, to, token, amount });
+        document.getElementById('txOutput').innerHTML = `<span class="success">✓ Minted ${amount} ${token} to ${to}</span>`;
+      } catch (error) {
+        document.getElementById('txOutput').innerHTML = `<span class="error">✗ Error: ${error.message}</span>`;
+      }
+    }
+
+    async function listBlocks() {
+      try {
+        const result = await apiCall('/blocks');
+        let html = `<span class="info">Total blocks: ${result.length}<br>`;
+        result.slice(0, 5).forEach((block, i) => {
+          html += `Block ${i}: height=${block.height}<br>`;
+        });
+        html += '</span>';
+        document.getElementById('blockOutput').innerHTML = html;
+      } catch (error) {
+        document.getElementById('blockOutput').innerHTML = `<span class="error">✗ Error: ${error.message}</span>`;
+      }
+    }
+
+    async function createBlock() {
+      try {
+        const result = await apiCall('/block', 'POST');
+        document.getElementById('blockOutput').innerHTML = `<span class="success">✓ Block created at height ${result.height}</span>`;
+      } catch (error) {
+        document.getElementById('blockOutput').innerHTML = `<span class="error">✗ Error: ${error.message}</span>`;
+      }
+    }
+
+    async function getSnapshot() {
+      try {
+        const result = await apiCall('/snapshot');
+        document.getElementById('blockOutput').innerHTML = `<span class="info">Snapshot root:<br>${result.root}</span>`;
+      } catch (error) {
+        document.getElementById('blockOutput').innerHTML = `<span class="error">✗ Error: ${error.message}</span>`;
+      }
+    }
+
+    async function uploadCapsule() {
+      try {
+        const id = document.getElementById('capsuleId').value;
+        const code = document.getElementById('capsuleCode').value;
+        await apiCall('/capsule', 'POST', { id, code });
+        document.getElementById('capsuleOutput').innerHTML = `<span class="success">✓ Capsule '${id}' uploaded</span>`;
+      } catch (error) {
+        document.getElementById('capsuleOutput').innerHTML = `<span class="error">✗ Error: ${error.message}</span>`;
+      }
+    }
+
+    async function listCapsules() {
+      try {
+        const result = await apiCall('/capsule');
+        let html = `<span class="info">Total capsules: ${result.capsules.length}<br>`;
+        result.capsules.forEach((id, i) => {
+          html += `${i}: ${id}<br>`;
+        });
+        html += '</span>';
+        document.getElementById('capsuleOutput').innerHTML = html;
+      } catch (error) {
+        document.getElementById('capsuleOutput').innerHTML = `<span class="error">✗ Error: ${error.message}</span>`;
+      }
+    }
+
+    async function invokeCapsule() {
+      try {
+        const id = document.getElementById('capsuleId').value;
+        const input = Buffer.from('test').toString('base64');
+        const result = await apiCall(`/capsule/${id}/invoke`, 'POST', { input });
+        document.getElementById('capsuleOutput').innerHTML = `<span class="info">Output: ${result.output}</span>`;
+      } catch (error) {
+        document.getElementById('capsuleOutput').innerHTML = `<span class="error">✗ Error: ${error.message}</span>`;
+      }
+    }
+
+    async function listAnchors() {
+      try {
+        const result = await apiCall('/anchors');
+        let html = `<span class="info">Total anchors: ${result.anchors.length}<br>`;
+        result.anchors.slice(0, 5).forEach((id, i) => {
+          html += `${i}: ${id}<br>`;
+        });
+        html += '</span>';
+        document.getElementById('anchorOutput').innerHTML = html;
+      } catch (error) {
+        document.getElementById('anchorOutput').innerHTML = `<span class="error">✗ Error: ${error.message}</span>`;
+      }
+    }
+
+    async function getAnchor() {
+      try {
+        const id = document.getElementById('anchorId').value;
+        const result = await apiCall(`/anchor/${id}`);
+        document.getElementById('anchorOutput').innerHTML = `<span class="info">ID: ${result.id}<br>Proof: ${result.proof.substring(0, 50)}...</span>`;
+      } catch (error) {
+        document.getElementById('anchorOutput').innerHTML = `<span class="error">✗ Error: ${error.message}</span>`;
+      }
+    }
+
+    async function getPool() {
+      try {
+        const result = await apiCall('/pool');
+        document.getElementById('anchorOutput').innerHTML = `<span class="info">Pool: ${JSON.stringify(result).substring(0, 100)}...</span>`;
+      } catch (error) {
+        document.getElementById('anchorOutput').innerHTML = `<span class="error">✗ Error: ${error.message}</span>`;
+      }
+    }
+  </script>
+</body>
+</html>

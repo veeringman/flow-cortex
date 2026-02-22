@@ -1,0 +1,13 @@
+requirements.txt
+
+# REST API client
+requests>=2.28.0
+
+# gRPC support (optional, used for grpc_client.py)
+grpcio>=1.48.0
+grpcio-tools>=1.48.0
+
+# Development
+black>=23.0
+flake8>=6.0
+pytest>=7.0

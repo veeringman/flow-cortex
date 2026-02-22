@@ -1,0 +1,21 @@
+{
+  "name": "flowcortex-l1-rest-client",
+  "version": "1.0.0",
+  "description": "TypeScript/JavaScript client for FlowCortex L1 REST API",
+  "main": "dist/client.js",
+  "types": "dist/client.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "example:node": "node dist/examples/node-example.js",
+    "example:browser": "http-server .",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "axios": "^1.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "http-server": "^14.1.1"
+  }
+}

@@ -1,9 +1,14 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // use vendored protoc so that build works in environments without system
-    // compiler installed (e.g., container-based CI).
-    let protoc = protoc_bin_vendored::protoc_bin_path()?;
+    // Prefer system protoc when available; fall back to vendored binary.
+    if std::env::var_os("PROTOC").is_none() {
+        let protoc = protoc_bin_vendored::protoc_bin_path()?;
+        // Safety: build scripts run in a controlled environment; setting an
+        // env var here is safe and scoped to the build process.
+        unsafe {
+            std::env::set_var("PROTOC", protoc);
+        }
+    }
     tonic_build::configure()
-        .protoc_path(protoc)
         .build_server(true)
         .compile(&["proto/l1.proto"], &["proto"])?;
     Ok(())
