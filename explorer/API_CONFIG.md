@@ -143,6 +143,9 @@ POST   /capsule/{id}/invoke             - Invoke capsule
 GET    /anchors                         - List anchors
 GET    /anchor/{id}                     - Get anchor
 POST   /anchor                          - Submit anchor
+POST   /token/create                    - Create token
+GET    /tokens                          - List tokens
+GET    /token/{symbol}                  - Get token metadata
 ```
 
 ## Summary

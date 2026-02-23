@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block page_title %}Tokens{% endblock %}
+{% block page_subtitle %}Create and manage token metadata{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="card p-6">
+        <div class="section-header">
+            <i class="fas fa-plus"></i>
+            <h3 class="text-lg font-semibold">Create Token</h3>
+        </div>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium mb-2">Symbol</label>
+                <input id="token-symbol" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" placeholder="USDC" />
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-2">Name</label>
+                <input id="token-name" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" placeholder="Stable Dollar" />
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Decimals</label>
+                    <input id="token-decimals" type="number" min="0" max="18" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" placeholder="6" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Initial Supply</label>
+                    <input id="token-supply" type="number" min="0" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" placeholder="1000000" />
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-2">Token Type</label>
+                <select id="token-type" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+                    <option value="stablecoin">Stablecoin</option>
+                    <option value="native">Native</option>
+                    <option value="governance">Governance</option>
+                    <option value="utility">Utility</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-2">Metadata (JSON)</label>
+                <textarea id="token-metadata" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 h-24" placeholder='{"issuer":"FlowCortex"}'></textarea>
+            </div>
+            <button onclick="createToken()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium bg-green-500 hover:bg-green-600">
+                <i class="fas fa-seedling mr-2"></i>Create Token
+            </button>
+        </div>
+        <div id="token-create-output" class="output-box hidden mt-4"></div>
+    </div>
+
+    <div class="card p-6">
+        <div class="section-header">
+            <i class="fas fa-list"></i>
+            <h3 class="text-lg font-semibold">Token Registry</h3>
+        </div>
+        <div class="space-y-4">
+            <button onclick="listTokens()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium">
+                <i class="fas fa-sync-alt mr-2"></i>List Tokens
+            </button>
+            <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <label class="block text-sm font-medium mb-2">Get Token by Symbol</label>
+                <input id="token-lookup" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" placeholder="USDC" />
+                <button onclick="getToken()" class="button-primary w-full mt-3 px-4 py-2 text-white rounded-lg font-medium">
+                    <i class="fas fa-search mr-2"></i>Get Token
+                </button>
+            </div>
+        </div>
+        <div id="tokens-list" class="mt-4"></div>
+        <div id="tokens-output" class="output-box hidden mt-4"></div>
+        <div id="token-detail-output" class="output-box hidden mt-4"></div>
+    </div>
+</div>
+{% endblock %}

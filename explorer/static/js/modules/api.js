@@ -49,6 +49,26 @@ export const BalanceAPI = {
 };
 
 /**
+ * Token API
+ */
+export const TokenAPI = {
+    async createToken(payload) {
+        return apiCall('/token/create', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+    },
+
+    async listTokens() {
+        return apiCall('/tokens');
+    },
+
+    async getToken(symbol) {
+        return apiCall(`/token/${encodeURIComponent(symbol)}`);
+    }
+};
+
+/**
  * Block API
  */
 export const BlockAPI = {

@@ -46,6 +46,7 @@ export function switchTab(tabName) {
     const titles = {
         dashboard: { title: 'Dashboard', subtitle: 'Network Overview & Statistics' },
         balance: { title: 'Account Balance', subtitle: 'Check account balances' },
+        tokens: { title: 'Tokens', subtitle: 'Create and manage tokens' },
         blocks: { title: 'Blocks', subtitle: 'Explore blockchain blocks' },
         transactions: { title: 'Transactions', subtitle: 'View transaction pool' },
         capsules: { title: 'Smart Contracts', subtitle: 'Deploy and execute capsules' },

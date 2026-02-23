@@ -3,7 +3,7 @@
  * Modular architecture with ES6 modules
  */
 
-import { BlockAPI, TransactionAPI, BalanceAPI, CapsuleAPI, AnchorAPI, NetworkAPI } from './modules/api.js';
+import { BlockAPI, TransactionAPI, BalanceAPI, CapsuleAPI, AnchorAPI, NetworkAPI, TokenAPI } from './modules/api.js';
 import { connectWallet, disconnectWallet, signTransaction, isWalletConnected, createTransferTx, createAnchorTx } from './modules/wallet.js';
 import { initBlockChart, initTxTypeChart, updateBlockChart, updateTxTypeChart, updateChartTheme } from './modules/charts.js';
 import * as UI from './modules/ui.js';
@@ -74,6 +74,9 @@ async function init() {
     window.createBlock = createBlock;
     window.queryPool = queryPool;
     window.querySnapshot = querySnapshot;
+    window.createToken = createToken;
+    window.listTokens = listTokens;
+    window.getToken = getToken;
     window.uploadCapsule = uploadCapsule;
     window.listCapsules = listCapsules;
     window.invokeCapsule = invokeCapsule;
@@ -476,6 +479,85 @@ async function queryPool() {
 async function querySnapshot() {
     const data = await TransactionAPI.getSnapshot();
     UI.displayOutput('snapshot-output', data);
+}
+
+/**
+ * Tokens Tab
+ */
+async function createToken() {
+    const symbol = document.getElementById('token-symbol')?.value.trim();
+    const name = document.getElementById('token-name')?.value.trim();
+    const decimals = parseInt(document.getElementById('token-decimals')?.value, 10);
+    const initialSupply = parseInt(document.getElementById('token-supply')?.value, 10);
+    const tokenType = document.getElementById('token-type')?.value || 'stablecoin';
+    const metadataJson = document.getElementById('token-metadata')?.value.trim();
+
+    if (!symbol || !name || Number.isNaN(decimals) || Number.isNaN(initialSupply)) {
+        UI.displayOutput('token-create-output', { error: 'Symbol, name, decimals, and initial supply are required' });
+        return;
+    }
+
+    const payload = {
+        symbol,
+        name,
+        decimals,
+        initial_supply: initialSupply,
+        token_type: tokenType,
+        metadata_json: metadataJson || ''
+    };
+
+    const data = await TokenAPI.createToken(payload);
+    UI.displayOutput('token-create-output', data);
+    if (!data.error && data.success) {
+        UI.showToast(`Token created: ${data.symbol || symbol}`);
+        await listTokens();
+    }
+}
+
+async function listTokens() {
+    const list = document.getElementById('tokens-list');
+    const data = await TokenAPI.listTokens();
+
+    if (!data.error) {
+        const tokens = Array.isArray(data) ? data : (data.tokens || []);
+        if (list) {
+            if (!tokens.length) {
+                list.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">No tokens found</p>';
+            } else {
+                list.innerHTML = `
+                    <div class="grid grid-cols-1 gap-3">
+                        ${tokens.map(token => `
+                            <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <p class="font-semibold">${token.symbol || token.name || 'Token'}</p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">${token.name || ''}</p>
+                                    </div>
+                                    <div class="text-right text-xs text-gray-500 dark:text-gray-400">
+                                        <div>Supply: ${token.total_supply ?? '-'}</div>
+                                        <div>Status: ${token.status || 'active'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+        }
+        document.getElementById('tokens-output')?.classList.add('hidden');
+    } else {
+        UI.displayOutput('tokens-output', data);
+    }
+}
+
+async function getToken() {
+    const symbol = document.getElementById('token-lookup')?.value.trim();
+    if (!symbol) {
+        UI.displayOutput('token-detail-output', { error: 'Token symbol is required' });
+        return;
+    }
+    const data = await TokenAPI.getToken(symbol);
+    UI.displayOutput('token-detail-output', data);
 }
 
 /**

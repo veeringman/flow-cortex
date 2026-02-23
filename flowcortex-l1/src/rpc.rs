@@ -1,5 +1,5 @@
 use crate::node::Node;
-use crate::types::{AccountId, Token, Transaction, TransactionKind, ReadWriteSet, QCTProof};
+use crate::types::{AccountId, Token, TokenMetadata, TokenType, Transaction, TransactionKind, ReadWriteSet, QCTProof};
 use axum::{
     extract::{Extension, Json, Path},
     http::StatusCode,
@@ -52,6 +52,24 @@ struct BalanceResponse {
     account: AccountId,
     token: Token,
     balance: u64,
+}
+
+#[derive(Deserialize)]
+struct CreateTokenRequest {
+    symbol: String,
+    name: String,
+    decimals: u8,
+    initial_supply: u64,
+    token_type: String,
+    #[serde(default)]
+    metadata_json: String,
+}
+
+#[derive(Serialize)]
+struct CreateTokenResponse {
+    success: bool,
+    symbol: String,
+    error: String,
 }
 
 #[derive(Serialize)]
@@ -178,6 +196,85 @@ async fn balance(
     let n = node.lock().unwrap();
     let bal = n.balance(&acct, &token);
     Json(BalanceResponse { account: acct, token, balance: bal }).into_response()
+}
+
+async fn create_token(
+    Extension(node): Extension<SharedNode>,
+    Json(req): Json<CreateTokenRequest>,
+) -> impl IntoResponse {
+    let token_type = match req.token_type.to_lowercase().as_str() {
+        "native" => TokenType::Native,
+        "stablecoin" => TokenType::Stablecoin,
+        "governance" => TokenType::Governance,
+        "utility" => TokenType::Utility,
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse { error: "invalid token_type".to_string() }),
+            )
+                .into_response();
+        }
+    };
+
+    let mut n = node.lock().unwrap();
+    let admin = n.admin.clone();
+    let metadata = if req.metadata_json.trim().is_empty() {
+        None
+    } else {
+        Some(req.metadata_json)
+    };
+
+    let symbol = req.symbol.clone();
+    match n.ledger.create_token(
+        &admin,
+        req.symbol,
+        req.name,
+        req.decimals,
+        req.initial_supply,
+        token_type,
+        metadata,
+    ) {
+        Ok(()) => (
+            StatusCode::CREATED,
+            Json(CreateTokenResponse {
+                success: true,
+                symbol,
+                error: String::new(),
+            }),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(CreateTokenResponse {
+                success: false,
+                symbol,
+                error: e.to_string(),
+            }),
+        )
+            .into_response(),
+    }
+}
+
+async fn list_tokens(Extension(node): Extension<SharedNode>) -> impl IntoResponse {
+    let n = node.lock().unwrap();
+    let tokens: Vec<TokenMetadata> = n.ledger.list_tokens().into_iter().cloned().collect();
+    Json(tokens)
+}
+
+async fn get_token(
+    Path(symbol): Path<String>,
+    Extension(node): Extension<SharedNode>,
+) -> impl IntoResponse {
+    let n = node.lock().unwrap();
+    let token = symbol.to_lowercase();
+    match n.ledger.get_token(&token) {
+        Some(meta) => Json(meta).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse { error: format!("token not found: {}", token) }),
+        )
+            .into_response(),
+    }
 }
 
 async fn get_pool(Extension(node): Extension<SharedNode>) -> impl IntoResponse {
@@ -356,6 +453,9 @@ pub fn make_router(node: SharedNode) -> Router {
         .route("/mint", post(mint))
         .route("/transfer", post(transfer))
         .route("/balance/{account}/{token}", get(balance))
+        .route("/token/create", post(create_token))
+        .route("/tokens", get(list_tokens))
+        .route("/token/{symbol}", get(get_token))
         .route("/pool", get(get_pool))
         .route("/block", post(create_block))
         .route("/blocks", get(list_blocks))
