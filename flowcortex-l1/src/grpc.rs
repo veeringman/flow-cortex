@@ -18,10 +18,12 @@ use proto::*;
 mod tokens;
 mod settlement;
 mod admin;
+mod demo;
 
 use tokens::TokensService;
 use settlement::SettlementService;
 use admin::AdminService;
+use demo::DemoService;
 
 #[derive(Clone)]
 pub struct L1Service {

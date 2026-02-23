@@ -5,3 +5,4 @@ pub mod rpc;
 pub mod grpc;
 pub mod types;
 pub mod qct;
+pub mod demo;
