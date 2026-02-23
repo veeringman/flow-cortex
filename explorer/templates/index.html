@@ -420,8 +420,7 @@
                                     <div>
                                         <label class="block text-sm font-medium mb-2">Token</label>
                                         <select id="balance-token" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
-                                            <option value="proof">Proof</option>
-                                            <option value="flower">FloweR</option>
+                                            <option value="">Loading tokens...</option>
                                         </select>
                                     </div>
                                 </div>
@@ -767,6 +766,47 @@
             if (show) el.classList.remove('hidden');
         }
 
+        function updateTokenSelectOptions(tokens) {
+            const select = document.getElementById('balance-token');
+            if (!select) return;
+
+            const current = select.value;
+            select.innerHTML = '';
+
+            if (!tokens || !tokens.length) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No tokens available';
+                select.appendChild(option);
+                return;
+            }
+
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = '-- Select Token --';
+            select.appendChild(placeholder);
+
+            tokens.forEach((token) => {
+                const symbol = (token.symbol || '').toString();
+                if (!symbol) return;
+                const option = document.createElement('option');
+                option.value = symbol;
+                option.textContent = token.name ? `${symbol.toUpperCase()} - ${token.name}` : symbol.toUpperCase();
+                select.appendChild(option);
+            });
+
+            if (current && Array.from(select.options).some(opt => opt.value === current)) {
+                select.value = current;
+            }
+        }
+
+        async function refreshTokenOptions() {
+            const data = await apiCall('/tokens');
+            if (!data || data.error) return;
+            const tokens = Array.isArray(data) ? data : (data.tokens || []);
+            updateTokenSelectOptions(tokens);
+        }
+
         // ===== Balance Tab =====
         async function queryBalance() {
             const account = document.getElementById('balance-account').value || 'admin';
@@ -823,6 +863,9 @@
                 body: JSON.stringify(payload)
             });
             displayOutput('token-create-output', data);
+            if (data && data.success) {
+                await listTokens();
+            }
         }
 
         async function listTokens() {
@@ -830,6 +873,7 @@
             const list = document.getElementById('tokens-list');
             if (!data.error) {
                 const tokens = Array.isArray(data) ? data : (data.tokens || []);
+                updateTokenSelectOptions(tokens);
                 if (!tokens.length) {
                     if (list) list.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">No tokens found</p>';
                 } else if (list) {
@@ -1098,6 +1142,7 @@
             const snapshot = await apiCall('/snapshot');
             const pool = await apiCall('/pool');
             const capsules = await apiCall('/capsule');
+            await refreshTokenOptions();
 
             if (!blocks.error && Array.isArray(blocks)) {
                 document.getElementById('stat-blocks').textContent = blocks.length || 0;

@@ -49,6 +49,8 @@ async function init() {
     // Initialize UI
     UI.initTheme();
     UI.initUI();
+
+    await refreshTokenOptions();
     
     // Initialize charts
     initBlockChart('blockChart');
@@ -158,6 +160,8 @@ async function updateApiBase() {
     
     // Reload dashboard data with new API endpoint
     await loadDashboard();
+
+    await refreshTokenOptions();
     
     // Test connection
     updateNetworkStatus();
@@ -300,6 +304,7 @@ async function refreshAll() {
     if (icon) icon.classList.add('fa-spin');
     
     await loadDashboard();
+    await refreshTokenOptions();
     
     // Refresh current tab content
     const currentTab = UI.getCurrentTab();
@@ -332,6 +337,44 @@ async function queryBalance() {
     } else {
         document.getElementById('balance-result')?.classList.add('hidden');
         UI.displayOutput('balance-output', data);
+    }
+}
+
+async function refreshTokenOptions() {
+    const select = document.getElementById('balance-token');
+    if (!select) return;
+
+    const data = await TokenAPI.listTokens();
+    if (!data || data.error) return;
+
+    const tokens = Array.isArray(data) ? data : (data.tokens || []);
+    const current = select.value;
+    select.innerHTML = '';
+
+    if (!tokens.length) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'No tokens available';
+        select.appendChild(option);
+        return;
+    }
+
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = '-- Select Token --';
+    select.appendChild(placeholder);
+
+    tokens.forEach((token) => {
+        const symbol = (token.symbol || '').toString();
+        if (!symbol) return;
+        const option = document.createElement('option');
+        option.value = symbol;
+        option.textContent = token.name ? `${symbol.toUpperCase()} - ${token.name}` : symbol.toUpperCase();
+        select.appendChild(option);
+    });
+
+    if (current && Array.from(select.options).some(opt => opt.value === current)) {
+        select.value = current;
     }
 }
 
@@ -511,6 +554,7 @@ async function createToken() {
     if (!data.error && data.success) {
         UI.showToast(`Token created: ${data.symbol || symbol}`);
         await listTokens();
+        await refreshTokenOptions();
     }
 }
 
