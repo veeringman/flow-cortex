@@ -32,7 +32,15 @@ prost = "0.11"
 tonic-build = "0.9"
 protoc-bin-vendored = "3"
 
+[features]
+demo-example = []
+
 # we use hyper::Server in the binary
 
 [dev-dependencies]
 reqwest = { version = "0.11", features = ["json"] }
+
+[[example]]
+name = "test_demo"
+path = "examples/test_demo.rs"
+required-features = ["demo-example"]

@@ -302,14 +302,31 @@
         <!-- Main Content -->
         <main class="content flex-1 flex flex-col overflow-hidden">
             <!-- Header -->
-            <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+            <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between gap-4">
                 <div class="flex items-center gap-4">
                     <button id="toggleSidebar" class="toggle-sidebar p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                         <i class="fas fa-bars"></i>
                     </button>
                     <h2 id="pageTitle" class="text-2xl font-bold">Dashboard</h2>
                 </div>
-                <div class="flex items-center gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="hidden md:flex items-center gap-2">
+                        <div class="relative">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                            <input
+                                id="global-search-input"
+                                class="pl-9 pr-3 py-2 w-72 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm border border-transparent focus:border-blue-500 focus:outline-none"
+                                placeholder="Search block / tx / anchor / token"
+                                onkeydown="if (event.key === 'Enter') handleGlobalSearch()"
+                            />
+                        </div>
+                        <button onclick="handleGlobalSearch()" class="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition">
+                            Search
+                        </button>
+                    </div>
+                    <button onclick="showModal('globalSearchModal')" class="md:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition" title="Search">
+                        <i class="fas fa-search"></i>
+                    </button>
                     <button onclick="refreshAll()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition" title="Refresh all data">
                         <i class="fas fa-sync-alt"></i>
                     </button>
@@ -324,7 +341,7 @@
                 <div class="p-6 max-w-6xl mx-auto space-y-6">
                     <!-- Dashboard Tab -->
                     <div id="dashboard-content" class="tab-content">
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
                             <div class="card p-4">
                                 <div class="flex justify-between items-start">
                                     <div>
@@ -361,12 +378,28 @@
                                     <i class="fas fa-box text-2xl text-purple-500 opacity-50"></i>
                                 </div>
                             </div>
+                            <div class="card p-4">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">Total TXs</p>
+                                        <p class="text-3xl font-bold mt-1" id="stat-txs">-</p>
+                                    </div>
+                                    <i class="fas fa-arrows-alt-h text-2xl text-blue-500 opacity-50"></i>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="card p-6">
                             <h3 class="text-lg font-semibold mb-4">Recent Activity</h3>
                             <div id="recent-blocks" class="space-y-2 text-sm">
                                 <p class="text-gray-500 dark:text-gray-400">Loading recent blocks...</p>
+                            </div>
+                        </div>
+
+                        <div class="card p-6">
+                            <h3 class="text-lg font-semibold mb-4">Recent Transactions</h3>
+                            <div id="recent-transactions" class="space-y-2 text-sm">
+                                <p class="text-gray-500 dark:text-gray-400">Loading recent transactions...</p>
                             </div>
                         </div>
                     </div>
@@ -1068,6 +1101,18 @@
 
             if (!blocks.error && Array.isArray(blocks)) {
                 document.getElementById('stat-blocks').textContent = blocks.length || 0;
+                const totalTxs = blocks.reduce((sum, block) => {
+                    try {
+                        const txs = Array.isArray(block.transactions) ? block.transactions : JSON.parse(block.txs_json || '[]');
+                        return sum + txs.length;
+                    } catch {
+                        return sum;
+                    }
+                }, 0);
+                const txEl = document.getElementById('stat-txs');
+                if (txEl) txEl.textContent = totalTxs;
+                updateRecentBlocks(blocks);
+                updateRecentTransactions(blocks);
             }
             if (!snapshot.error && snapshot.root) {
                 const root = snapshot.root || '-';
@@ -1080,6 +1125,93 @@
             if (!capsules.error && capsules.capsules) {
                 document.getElementById('stat-capsules').textContent = (capsules.capsules || []).length;
             }
+        }
+
+        function updateRecentBlocks(blocks) {
+            const container = document.getElementById('recent-blocks');
+            if (!container) return;
+
+            if (!blocks.length) {
+                container.innerHTML = '<p class="text-gray-500 dark:text-gray-400">No blocks yet</p>';
+                return;
+            }
+
+            container.innerHTML = blocks.slice(-5).reverse().map(block => {
+                const txs = getBlockTransactions(block);
+                return `
+                    <div class="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                        <div>
+                            <p class="font-semibold">Block #${block.height}</p>
+                            <p class="text-xs text-gray-500">${txs.length} tx${txs.length !== 1 ? 's' : ''}</p>
+                        </div>
+                        <span class="text-xs text-gray-400">${truncateHash(block.root || '', 6, 6) || '-'}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateRecentTransactions(blocks) {
+            const container = document.getElementById('recent-transactions');
+            if (!container) return;
+
+            const txs = [];
+            blocks.slice(-6).forEach(block => {
+                const blockTxs = getBlockTransactions(block);
+                blockTxs.forEach((tx, index) => {
+                    txs.push({ tx, blockHeight: block.height, index });
+                });
+            });
+
+            if (!txs.length) {
+                container.innerHTML = '<p class="text-gray-500 dark:text-gray-400">No transactions yet</p>';
+                return;
+            }
+
+            container.innerHTML = txs.slice(-6).reverse().map(item => {
+                const summary = formatTxSummary(item.tx);
+                return `
+                    <div class="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                        <div>
+                            <p class="font-semibold">${summary.title}</p>
+                            <p class="text-xs text-gray-500">${summary.detail}</p>
+                        </div>
+                        <span class="text-xs text-gray-400">#${item.blockHeight}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getBlockTransactions(block) {
+            try {
+                if (Array.isArray(block.transactions)) return block.transactions;
+                return JSON.parse(block.txs_json || '[]');
+            } catch {
+                return [];
+            }
+        }
+
+        function formatTxSummary(tx) {
+            const kind = tx?.kind ? Object.keys(tx.kind)[0] : 'Unknown';
+            const detail = (() => {
+                if (tx.kind?.Transfer) {
+                    const { from, to, token, amount } = tx.kind.Transfer;
+                    return `${from} -> ${to} ${amount || ''} ${token || ''}`.trim();
+                }
+                if (tx.kind?.Mint) {
+                    const { to, token, amount } = tx.kind.Mint;
+                    return `Mint to ${to} ${amount || ''} ${token || ''}`.trim();
+                }
+                if (tx.kind?.AnchorProof) {
+                    return `Anchor ${tx.kind.AnchorProof.id || '-'}`;
+                }
+                return JSON.stringify(tx).slice(0, 80) + '...';
+            })();
+            return { title: kind, detail };
+        }
+
+        function truncateHash(hash, start = 8, end = 6) {
+            if (!hash || hash.length <= start + end) return hash;
+            return `${hash.slice(0, start)}...${hash.slice(-end)}`;
         }
 
         // ===== Sidebar Toggle =====
@@ -1145,6 +1277,196 @@
             }
         }
 
+        async function handleGlobalSearch(source = 'header') {
+            const inputId = source === 'modal' ? 'global-search-modal-input' : 'global-search-input';
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            const query = input.value.trim();
+            if (!query) {
+                alert('Enter a search term');
+                return;
+            }
+
+            const modalInput = document.getElementById('global-search-modal-input');
+            if (modalInput) modalInput.value = query;
+            showModal('globalSearchModal');
+
+            const statusEl = document.getElementById('global-search-status');
+            const resultsEl = document.getElementById('global-search-results');
+            if (statusEl) statusEl.textContent = `Searching for "${query}"...`;
+            if (resultsEl) resultsEl.innerHTML = '<div class="text-sm text-gray-500">Searching...</div>';
+
+            const [blocks, pool, anchorsList] = await Promise.all([
+                apiCall('/blocks'),
+                apiCall('/pool'),
+                apiCall('/anchors')
+            ]);
+
+            const results = {
+                blocks: [],
+                txs: [],
+                pool: [],
+                anchors: [],
+                token: null,
+                balance: null
+            };
+
+            const height = /^\d+$/.test(query) ? parseInt(query, 10) : null;
+
+            if (!blocks.error && Array.isArray(blocks)) {
+                if (height !== null) {
+                    const match = blocks.find(block => block.height === height);
+                    if (match) results.blocks.push(match);
+                }
+
+                blocks.forEach(block => {
+                    const txs = getBlockTransactions(block);
+                    txs.forEach((tx, index) => {
+                        const haystack = JSON.stringify(tx);
+                        if (haystack.includes(query)) {
+                            results.txs.push({ tx, blockHeight: block.height, index });
+                        }
+                    });
+                });
+            }
+
+            if (!pool.error && pool.pending) {
+                const pending = Array.isArray(pool.pending) ? pool.pending : [];
+                pending.forEach(tx => {
+                    if (JSON.stringify(tx).includes(query)) {
+                        results.pool.push(tx);
+                    }
+                });
+            }
+
+            if (!anchorsList.error) {
+                const anchors = Array.isArray(anchorsList) ? anchorsList : (anchorsList.anchors || []);
+                anchors.forEach(anchor => {
+                    if (JSON.stringify(anchor).includes(query) || String(anchor).includes(query)) {
+                        results.anchors.push(anchor);
+                    }
+                });
+            }
+
+            if (/^[A-Za-z0-9_-]{2,16}$/.test(query)) {
+                const token = await apiCall(`/token/${encodeURIComponent(query)}`);
+                if (!token.error) results.token = token;
+            }
+
+            if (query.includes(':')) {
+                const [account, token] = query.split(':').map(part => part.trim());
+                if (account && token) {
+                    const balance = await apiCall(`/balance/${encodeURIComponent(account)}/${encodeURIComponent(token)}`);
+                    if (!balance.error) results.balance = balance;
+                }
+            }
+
+            if (statusEl) statusEl.textContent = `Results for "${query}"`;
+            if (resultsEl) resultsEl.innerHTML = renderSearchResults(results, query);
+        }
+
+        function renderSearchResults(results, query) {
+            const sections = [];
+
+            if (results.blocks.length) {
+                sections.push(`
+                    <div>
+                        <h4 class="font-semibold mb-2">Blocks</h4>
+                        <div class="space-y-2">
+                            ${results.blocks.map(block => `
+                                <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                                    <div class="font-semibold">Block #${block.height}</div>
+                                    <div class="text-xs text-gray-500">Root: ${truncateHash(block.root || '', 8, 8) || '-'}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `);
+            }
+
+            if (results.txs.length) {
+                sections.push(`
+                    <div>
+                        <h4 class="font-semibold mb-2">Transactions</h4>
+                        <div class="space-y-2">
+                            ${results.txs.slice(0, 6).map(item => {
+                                const summary = formatTxSummary(item.tx);
+                                return `
+                                    <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                                        <div class="font-semibold">${summary.title}</div>
+                                        <div class="text-xs text-gray-500">${summary.detail}</div>
+                                        <div class="text-xs text-gray-400">Block #${item.blockHeight}</div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `);
+            }
+
+            if (results.pool.length) {
+                sections.push(`
+                    <div>
+                        <h4 class="font-semibold mb-2">Pending Pool</h4>
+                        <div class="space-y-2">
+                            ${results.pool.slice(0, 6).map(tx => {
+                                const summary = formatTxSummary(tx);
+                                return `
+                                    <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                                        <div class="font-semibold">${summary.title}</div>
+                                        <div class="text-xs text-gray-500">${summary.detail}</div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `);
+            }
+
+            if (results.anchors.length) {
+                sections.push(`
+                    <div>
+                        <h4 class="font-semibold mb-2">Anchors</h4>
+                        <div class="space-y-2">
+                            ${results.anchors.slice(0, 6).map(anchor => `
+                                <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                                    <div class="text-xs text-gray-500">${JSON.stringify(anchor)}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `);
+            }
+
+            if (results.token) {
+                sections.push(`
+                    <div>
+                        <h4 class="font-semibold mb-2">Token</h4>
+                        <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs text-gray-600 dark:text-gray-300">
+                            <pre class="whitespace-pre-wrap">${JSON.stringify(results.token, null, 2)}</pre>
+                        </div>
+                    </div>
+                `);
+            }
+
+            if (results.balance) {
+                sections.push(`
+                    <div>
+                        <h4 class="font-semibold mb-2">Balance</h4>
+                        <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs text-gray-600 dark:text-gray-300">
+                            <pre class="whitespace-pre-wrap">${JSON.stringify(results.balance, null, 2)}</pre>
+                        </div>
+                    </div>
+                `);
+            }
+
+            if (!sections.length) {
+                return `<div class="text-sm text-gray-500">No matches found for "${query}"</div>`;
+            }
+
+            return sections.join('');
+        }
+
         // ===== API Config =====
         function updateApiBase() {
             const input = document.getElementById('apiBaseInput');
@@ -1187,6 +1509,9 @@
             if (e.target.id === 'apiConfigModal') {
                 closeModal('apiConfigModal');
             }
+            if (e.target.id === 'globalSearchModal') {
+                closeModal('globalSearchModal');
+            }
         });
     </script>
 
@@ -1212,6 +1537,32 @@
                     Save
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- Global Search Modal -->
+    <div id="globalSearchModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold">Global Search</h3>
+                <button onclick="closeModal('globalSearchModal')" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="flex gap-2">
+                <input
+                    id="global-search-modal-input"
+                    class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+                    placeholder="Search block height, tx fields, anchor id, token symbol"
+                    onkeydown="if (event.key === 'Enter') handleGlobalSearch('modal')"
+                />
+                <button onclick="handleGlobalSearch('modal')" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition">
+                    Search
+                </button>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Tip: use account:token for balances (example: admin:USD).</p>
+            <div id="global-search-status" class="text-sm text-gray-500 mt-4">Enter a search term to get started.</div>
+            <div id="global-search-results" class="mt-4 space-y-4 max-h-96 overflow-y-auto"></div>
         </div>
     </div>
 </body>

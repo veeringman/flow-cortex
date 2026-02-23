@@ -1,7 +1,8 @@
 use crate::node::Node;
-use crate::types::{AccountId, Token, TokenMetadata, TokenType, Transaction, TransactionKind, ReadWriteSet, QCTProof};
+use crate::types::{AccountId, Token, TokenMetadata, TokenType, Transaction, TransactionKind, ReadWriteSet, QCTProof, CommitmentRecord, ProofRecord, CommitmentProofEvent};
+use crate::demo::{DemoSettlementConfig, DemoSettlementScenario};
 use axum::{
-    extract::{Extension, Json, Path},
+    extract::{Extension, Json, Path, Query as AxumQuery},
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
@@ -13,6 +14,7 @@ use axum::body::Body;
 use axum::response::Response;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
 use base64::Engine;
 
 /// Shared application state for handlers
@@ -115,6 +117,120 @@ struct CapsuleListResponse {
 struct CapsuleInvokeResponse {
     output: String,
 }
+
+// ============================================================================
+// Commitment & Proof API Request/Response Types
+// ============================================================================
+
+#[derive(Deserialize)]
+struct AnchorCommitmentRequest {
+    commitment_hash: String,
+    policy_id: String,
+    txn_ref: String,
+    timestamp: u64,
+    #[serde(default)]
+    context_ref: Option<String>,
+}
+
+#[derive(Serialize)]
+struct AnchorCommitmentResponse {
+    success: bool,
+    commitment_hash: String,
+    block_height: u64,
+    tx_hash: String,
+    timestamp: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct VerifyProofRequest {
+    commitment_hash: String,
+    proof_hash: String,
+    proof_data: String,  // Base64 encoded
+    proof_type: String,
+    #[serde(default)]
+    capsule_version: Option<String>,
+}
+
+#[derive(Serialize)]
+struct VerifyProofResponse {
+    success: bool,
+    commitment_hash: String,
+    proof_hash: String,
+    verified: bool,
+    block_height: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+#[derive(Serialize)]
+struct CommitmentResponse {
+    commitment_hash: String,
+    policy_id: String,
+    txn_ref: String,
+    timestamp: u64,
+    block_height: u64,
+    verified: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    context_ref: Option<String>,
+}
+
+#[derive(Serialize)]
+struct ProofStatusResponse {
+    commitment_hash: String,
+    verified: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    proof: Option<ProofInfo>,
+}
+
+#[derive(Serialize)]
+struct ProofInfo {
+    proof_hash: String,
+    verification_block: u64,
+    verified_at: u64,
+    verifier_capsule_version: String,
+}
+
+#[derive(Deserialize)]
+struct EventsQuery {
+    #[serde(default)]
+    limit: Option<usize>,
+    #[serde(default)]
+    commitment_hash: Option<String>,
+}
+
+#[derive(Serialize)]
+struct EventsResponse {
+    events: Vec<EventInfo>,
+    count: usize,
+}
+
+#[derive(Serialize)]
+struct EventInfo {
+    event_type: String,
+    commitment_hash: String,
+    block_height: u64,
+    timestamp: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    proof_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    verified: Option<bool>,
+}
+
+#[derive(Serialize)]
+struct DashboardStatsResponse {
+    total_commitments: usize,
+    total_proofs: usize,
+    verified_proofs: usize,
+    pending_proofs: usize,
+    total_events: usize,
+    current_block_height: u64,
+}
+
+// ============================================================================
+// Original Handler Functions
+// ============================================================================
 
 async fn create_account(
     Extension(node): Extension<SharedNode>,
@@ -424,6 +540,261 @@ async fn invoke_capsule(
     }
 }
 
+// ============================================================================
+// Commitment & Proof Handlers
+// ============================================================================
+
+async fn anchor_commitment(
+    Extension(node): Extension<SharedNode>,
+    Json(req): Json<AnchorCommitmentRequest>,
+) -> impl IntoResponse {
+    let mut n = node.lock().unwrap();
+    
+    match n.ledger.anchor_commitment(
+        req.commitment_hash.clone(),
+        req.policy_id.clone(),
+        req.txn_ref.clone(),
+        req.timestamp,
+        req.context_ref.clone(),
+    ) {
+        Ok((block_height, tx_hash)) => {
+            Json(AnchorCommitmentResponse {
+                success: true,
+                commitment_hash: req.commitment_hash,
+                block_height,
+                tx_hash,
+                timestamp: req.timestamp,
+                error: None,
+            }).into_response()
+        }
+        Err(e) => {
+            (StatusCode::BAD_REQUEST, Json(AnchorCommitmentResponse {
+                success: false,
+                commitment_hash: req.commitment_hash,
+                block_height: 0,
+                tx_hash: String::new(),
+                timestamp: req.timestamp,
+                error: Some(format!("{:?}", e)),
+            })).into_response()
+        }
+    }
+}
+
+async fn verify_proof(
+    Extension(node): Extension<SharedNode>,
+    Json(req): Json<VerifyProofRequest>,
+) -> impl IntoResponse {
+    let mut n = node.lock().unwrap();
+    
+    // Decode base64 proof data
+    let proof_data = match base64::engine::general_purpose::STANDARD.decode(&req.proof_data) {
+        Ok(data) => data,
+        Err(_) => {
+            return (StatusCode::BAD_REQUEST, Json(VerifyProofResponse {
+                success: false,
+                commitment_hash: req.commitment_hash,
+                proof_hash: req.proof_hash,
+                verified: false,
+                block_height: 0,
+                error: Some("Invalid base64 proof data".to_string()),
+            })).into_response();
+        }
+    };
+    
+    let capsule_version = req.capsule_version.clone().unwrap_or_else(|| "verifier_v1".to_string());
+    match n.ledger.verify_proof(
+        req.commitment_hash.clone(),
+        req.proof_hash.clone(),
+        proof_data,
+        req.proof_type.clone(),
+        None,
+        capsule_version,
+    ) {
+        Ok(record) => {
+            let verified = matches!(record.verification_status, crate::types::ProofVerificationStatus::Verified);
+            Json(VerifyProofResponse {
+                success: true,
+                commitment_hash: record.commitment_hash,
+                proof_hash: record.proof_hash,
+                verified,
+                block_height: record.verification_block.unwrap_or(0),
+                error: None,
+            }).into_response()
+        }
+        Err(e) => {
+            (StatusCode::BAD_REQUEST, Json(VerifyProofResponse {
+                success: false,
+                commitment_hash: req.commitment_hash,
+                proof_hash: req.proof_hash,
+                verified: false,
+                block_height: 0,
+                error: Some(format!("{:?}", e)),
+            })).into_response()
+        }
+    }
+}
+
+async fn query_commitment(
+    Path(hash): Path<String>,
+    Extension(node): Extension<SharedNode>,
+) -> impl IntoResponse {
+    let n = node.lock().unwrap();
+    
+    match n.ledger.query_commitment(&hash) {
+        Some(record) => {
+            Json(CommitmentResponse {
+                commitment_hash: record.commitment_hash,
+                policy_id: record.policy_id,
+                txn_ref: record.txn_ref,
+                timestamp: record.timestamp,
+                block_height: record.block_height,
+                verified: record.verified,
+                context_ref: record.context_ref,
+            }).into_response()
+        }
+        None => {
+            (StatusCode::NOT_FOUND, Json(ErrorResponse {
+                error: "Commitment not found".to_string(),
+            })).into_response()
+        }
+    }
+}
+
+async fn query_proof_status(
+    Path(hash): Path<String>,
+    Extension(node): Extension<SharedNode>,
+) -> impl IntoResponse {
+    let n = node.lock().unwrap();
+    
+    match n.ledger.query_proof_status(&hash) {
+        Some((proof_opt, verified)) => {
+            let proof_info = proof_opt.map(|p| ProofInfo {
+                proof_hash: p.proof_hash,
+                verification_block: p.verification_block.unwrap_or(0),
+                verified_at: p.submitted_at,
+                verifier_capsule_version: p.verifier_capsule_version,
+            });
+            Json(ProofStatusResponse {
+                commitment_hash: hash,
+                verified,
+                proof: proof_info,
+            }).into_response()
+        }
+        None => {
+            (StatusCode::NOT_FOUND, Json(ErrorResponse {
+                error: "Commitment not found".to_string(),
+            })).into_response()
+        }
+    }
+}
+
+async fn list_events(
+    AxumQuery(query): AxumQuery<EventsQuery>,
+    Extension(node): Extension<SharedNode>,
+) -> impl IntoResponse {
+    let n = node.lock().unwrap();
+    
+    let events: Vec<EventInfo> = n.ledger.query_events(
+        query.commitment_hash.as_deref(),
+        None,
+        query.limit.unwrap_or(100),
+        0,
+    ).iter().map(|e| match e {
+        CommitmentProofEvent::CommitmentAnchored { commitment_hash, block_height, timestamp, .. } => {
+            EventInfo {
+                event_type: "commitment.anchored".to_string(),
+                commitment_hash: commitment_hash.clone(),
+                block_height: *block_height,
+                timestamp: *timestamp,
+                proof_hash: None,
+                verified: None,
+            }
+        }
+        CommitmentProofEvent::ProofVerified { commitment_hash, proof_hash, verification_block, verified_at, .. } => {
+            EventInfo {
+                event_type: "proof.verified".to_string(),
+                commitment_hash: commitment_hash.clone(),
+                block_height: *verification_block,
+                timestamp: *verified_at,
+                proof_hash: Some(proof_hash.clone()),
+                verified: Some(true),
+            }
+        }
+        CommitmentProofEvent::ProofVerificationFailed { commitment_hash, proof_hash, block_height, failed_at, .. } => {
+            EventInfo {
+                event_type: "proof.failed".to_string(),
+                commitment_hash: commitment_hash.clone(),
+                block_height: *block_height,
+                timestamp: *failed_at,
+                proof_hash: Some(proof_hash.clone()),
+                verified: Some(false),
+            }
+        }
+        CommitmentProofEvent::CommitmentNotFound { commitment_hash, proof_hash, submitted_at } => {
+            EventInfo {
+                event_type: "commitment.missing".to_string(),
+                commitment_hash: commitment_hash.clone(),
+                block_height: 0,
+                timestamp: *submitted_at,
+                proof_hash: Some(proof_hash.clone()),
+                verified: None,
+            }
+        }
+        CommitmentProofEvent::InvalidProofFormat { error_description: _, submitted_at } => {
+            EventInfo {
+                event_type: "proof.invalid".to_string(),
+                commitment_hash: "".to_string(),
+                block_height: 0,
+                timestamp: *submitted_at,
+                proof_hash: None,
+                verified: None,
+            }
+        }
+        CommitmentProofEvent::DuplicateProof { commitment_hash, proof_hash, .. } => {
+            EventInfo {
+                event_type: "proof.duplicate".to_string(),
+                commitment_hash: commitment_hash.clone(),
+                block_height: 0,
+                timestamp: 0,
+                proof_hash: Some(proof_hash.clone()),
+                verified: None,
+            }
+        }
+        _ => {
+            EventInfo {
+                event_type: "unknown".to_string(),
+                commitment_hash: "".to_string(),
+                block_height: 0,
+                timestamp: 0,
+                proof_hash: None,
+                verified: None,
+            }
+        }
+    }).collect();
+    
+    Json(EventsResponse {
+        count: events.len(),
+        events,
+    })
+}
+
+async fn dashboard_stats(
+    Extension(node): Extension<SharedNode>,
+) -> impl IntoResponse {
+    let n = node.lock().unwrap();
+    
+    let stats = n.ledger.get_stats();
+    
+    Json(DashboardStatsResponse {
+        total_commitments: stats.total_commitments,
+        total_proofs: stats.total_proofs,
+        verified_proofs: stats.verified_proofs,
+        pending_proofs: stats.pending_proofs,
+        total_events: stats.total_events,
+        current_block_height: n.ledger.block_height,
+    })
+}
+
 /// Build the router for the RPC server.
 pub fn make_router(node: SharedNode) -> Router {
     // middleware to inject permissive CORS headers
@@ -462,13 +833,20 @@ pub fn make_router(node: SharedNode) -> Router {
         .route("/snapshot", get(snapshot))
         // generic transaction submission
         .route("/tx", post(submit_tx))
-        // anchor queries
+        // anchor queries (legacy)
         .route("/anchors", get(list_anchors))
         .route("/anchor/{id}", get(get_anchor))
         // capsule management
         .route("/capsule", post(upload_capsule))
         .route("/capsule", get(list_capsules))
         .route("/capsule/{id}/invoke", post(invoke_capsule))
+        // commitment & proof APIs
+        .route("/api/anchor_commitment", post(anchor_commitment))
+        .route("/api/verify_proof", post(verify_proof))
+        .route("/api/commitment/{hash}", get(query_commitment))
+        .route("/api/proof_status/{hash}", get(query_proof_status))
+        .route("/api/events", get(list_events))
+        .route("/api/stats", get(dashboard_stats))
         .layer(middleware::from_fn(cors))
         .layer(Extension(node))
 }

@@ -1777,6 +1777,35 @@ impl Ledger {
              - Bottleneck: network latency, not CPU/memory"
         )
     }
+
+    /// Get dashboard statistics
+    pub fn get_stats(&self) -> DashboardStats {
+        let verified_count = self.proofs.values()
+            .filter(|p| matches!(p.verification_status, ProofVerificationStatus::Verified))
+            .count();
+        
+        let pending_count = self.commitments.values()
+            .filter(|c| !c.verified)
+            .count();
+
+        DashboardStats {
+            total_commitments: self.commitments.len(),
+            total_proofs: self.proofs.len(),
+            verified_proofs: verified_count,
+            pending_proofs: pending_count,
+            total_events: self.commitment_proof_events.len(),
+        }
+    }
+}
+
+/// Dashboard statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardStats {
+    pub total_commitments: usize,
+    pub total_proofs: usize,
+    pub verified_proofs: usize,
+    pub pending_proofs: usize,
+    pub total_events: usize,
 }
 
 // ============================================================================

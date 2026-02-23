@@ -1,24 +1,19 @@
 {
   "ledger": {
     "balances": {
-      "admin": {},
+      "test1": {
+        "proof": 75
+      },
       "alice": {
         "proof": 1
+      },
+      "admin": {},
+      "test2": {
+        "proof": 25
       }
     },
     "admin": "admin",
     "tokens": {
-      "proof": {
-        "symbol": "proof",
-        "name": "Proof Token",
-        "decimals": 0,
-        "total_supply": 0,
-        "creator": "admin",
-        "token_type": "native",
-        "status": "active",
-        "created_at": 0,
-        "metadata": null
-      },
       "flower": {
         "symbol": "flower",
         "name": "Flow Dollar",
@@ -26,6 +21,17 @@
         "total_supply": 0,
         "creator": "admin",
         "token_type": "stablecoin",
+        "status": "active",
+        "created_at": 0,
+        "metadata": null
+      },
+      "proof": {
+        "symbol": "proof",
+        "name": "Proof Token",
+        "decimals": 0,
+        "total_supply": 0,
+        "creator": "admin",
+        "token_type": "native",
         "status": "active",
         "created_at": 0,
         "metadata": null
@@ -43,38 +49,38 @@
   },
   "admin": "admin",
   "snapshot_root": [
-    103,
-    143,
-    40,
-    171,
-    17,
-    247,
-    106,
-    155,
-    165,
-    42,
-    163,
-    216,
-    31,
-    216,
-    253,
-    62,
-    119,
+    123,
+    138,
+    43,
+    206,
+    37,
+    20,
+    68,
+    47,
     211,
-    5,
-    170,
-    168,
-    243,
-    200,
-    83,
-    236,
+    38,
+    151,
+    198,
+    244,
+    201,
+    42,
+    51,
     64,
-    94,
+    77,
+    204,
     114,
-    213,
-    110,
-    55,
-    76
+    180,
+    112,
+    48,
+    160,
+    155,
+    108,
+    208,
+    77,
+    21,
+    191,
+    46,
+    223
   ],
   "history": [
     {
@@ -90,6 +96,101 @@
         "writes": []
       },
       "proof": null
+    },
+    {
+      "kind": {
+        "Mint": {
+          "to": "test1",
+          "token": "proof",
+          "amount": 100
+        }
+      },
+      "rw_set": {
+        "reads": [],
+        "writes": []
+      },
+      "proof": [
+        227,
+        176,
+        196,
+        66,
+        152,
+        252,
+        28,
+        20,
+        154,
+        251,
+        244,
+        200,
+        153,
+        111,
+        185,
+        36,
+        39,
+        174,
+        65,
+        228,
+        100,
+        155,
+        147,
+        76,
+        164,
+        149,
+        153,
+        27,
+        120,
+        82,
+        184,
+        85
+      ]
+    },
+    {
+      "kind": {
+        "Transfer": {
+          "from": "test1",
+          "to": "test2",
+          "token": "proof",
+          "amount": 25
+        }
+      },
+      "rw_set": {
+        "reads": [],
+        "writes": []
+      },
+      "proof": [
+        227,
+        176,
+        196,
+        66,
+        152,
+        252,
+        28,
+        20,
+        154,
+        251,
+        244,
+        200,
+        153,
+        111,
+        185,
+        36,
+        39,
+        174,
+        65,
+        228,
+        100,
+        155,
+        147,
+        76,
+        164,
+        149,
+        153,
+        27,
+        120,
+        82,
+        184,
+        85
+      ]
     }
   ],
   "pool": [],
@@ -110,6 +211,59 @@
             "writes": []
           },
           "proof": null
+        }
+      ]
+    },
+    {
+      "height": 2,
+      "transactions": [
+        {
+          "kind": {
+            "Transfer": {
+              "from": "test1",
+              "to": "test2",
+              "token": "proof",
+              "amount": 25
+            }
+          },
+          "rw_set": {
+            "reads": [],
+            "writes": []
+          },
+          "proof": [
+            227,
+            176,
+            196,
+            66,
+            152,
+            252,
+            28,
+            20,
+            154,
+            251,
+            244,
+            200,
+            153,
+            111,
+            185,
+            36,
+            39,
+            174,
+            65,
+            228,
+            100,
+            155,
+            147,
+            76,
+            164,
+            149,
+            153,
+            27,
+            120,
+            82,
+            184,
+            85
+          ]
         }
       ]
     }

@@ -1,7 +1,7 @@
 # FlowCortex Demo - Comprehensive ToDo List
 
 **Created:** February 23, 2026  
-**Last Updated:** February 23, 2026 (Phase 13 Complete & Tested)  
+**Last Updated:** February 23, 2026 (Explorer UI parity tracking added)  
 **Demo Objective:** Demonstrate provably compliant enterprise treasury settlement with FortressDigital + ProofCortex  
 
 ---
@@ -26,6 +26,26 @@
 | 🔲 Phase 14: Testing & Validation | NOT STARTED | 0/12 |
 | 🔲 Phase 15: Documentation | NOT STARTED | 0/11 |
 | 🔲 Phase 16: Demo Readiness | NOT STARTED | 0/12 |
+
+---
+
+## Explorer UI Parity Tracker (FlowCortex Features)
+
+- [ ] Dashboard summary cards match demo data
+- [ ] Commitments list view (columns, status chips, paging)
+- [ ] Commitment detail view (metadata, block height, timestamps)
+- [ ] Proof verification view (status, error states, capsule version)
+- [ ] Events timeline (ordering, filters, empty states)
+- [ ] API health/status panel (L1/L0/L2 connectivity)
+- [ ] Navigation + branding (sidebar/header parity)
+- [ ] Search/filter/sort behaviors match API outputs
+- [ ] Error/empty/loading states align with demo flows
+- [ ] Basic responsive layout check (desktop/tablet/mobile)
+
+**Status Notes:**
+- [ ] Last reviewed: ____
+- [ ] Owner: ____
+- [ ] Next focus: ____
 
 ---
 
