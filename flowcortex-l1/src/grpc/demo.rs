@@ -195,8 +195,8 @@ impl DemoService {
         
         if let Some(scenario) = scenarios.get_mut(&req.scenario_id) {
             let node = self.node.clone();
-            let ledger = node.read().unwrap();
-            let current_height = ledger.get_block_height();
+            let n = node.lock().unwrap();
+            let current_height = n.ledger.block_height;
             let timestamp = current_height;
 
             // Execute the specific step
@@ -447,25 +447,104 @@ impl DemoService {
     /// API: GET /demo/events
     pub fn get_events(&self, req: GetEventsRequest) -> GetEventsResponse {
         let node = self.node.clone();
-        let ledger = node.read().unwrap();
+        let n = node.lock().unwrap();
         let limit = req.limit.unwrap_or(50);
         
         // Get events from ledger
-        let events_data = ledger.get_all_events();
+        let events_data = n.ledger.get_all_events();
         
         // Convert to demo event format
         let mut demo_events: Vec<DemoEventDetails> = vec![];
         
-        for event in events_data.iter().take(limit) {
+        for (idx, event) in events_data.iter().enumerate().take(limit) {
+            let (event_type, commitment_hash, proof_hash, block_height, timestamp, details) = 
+                match event {
+                    CommitmentProofEvent::CommitmentAnchored { 
+                        commitment_hash, policy_id, txn_ref, block_height, timestamp 
+                    } => {
+                        (
+                            "commitment.anchored".to_string(),
+                            commitment_hash.clone(),
+                            None,
+                            *block_height,
+                            *timestamp,
+                            format!("Commitment anchored: {} (txn_ref: {}, policy: {})", 
+                                commitment_hash, txn_ref, policy_id),
+                        )
+                    },
+                    CommitmentProofEvent::ProofVerified { 
+                        commitment_hash, proof_hash, verification_block, verified_at, verifier_capsule_version 
+                    } => {
+                        (
+                            "proof.verified".to_string(),
+                            commitment_hash.clone(),
+                            Some(proof_hash.clone()),
+                            *verification_block,
+                            *verified_at,
+                            format!("Proof verified successfully (capsule: {})", 
+                                verifier_capsule_version),
+                        )
+                    },
+                    CommitmentProofEvent::ProofVerificationFailed { 
+                        commitment_hash, proof_hash, error_reason, block_height, failed_at 
+                    } => {
+                        (
+                            "proof.verification_failed".to_string(),
+                            commitment_hash.clone(),
+                            Some(proof_hash.clone()),
+                            *block_height,
+                            *failed_at,
+                            format!("Proof verification failed: {}", error_reason),
+                        )
+                    },
+                    CommitmentProofEvent::CommitmentNotFound { 
+                        commitment_hash, proof_hash, submitted_at 
+                    } => {
+                        (
+                            "error.commitment_not_found".to_string(),
+                            commitment_hash.clone(),
+                            Some(proof_hash.clone()),
+                            0,
+                            *submitted_at,
+                            "Commitment not found for proof submission".to_string(),
+                        )
+                    },
+                    CommitmentProofEvent::InvalidProofFormat { 
+                        error_description, submitted_at 
+                    } => {
+                        (
+                            "error.invalid_proof_format".to_string(),
+                            "".to_string(),
+                            None,
+                            0,
+                            *submitted_at,
+                            format!("Invalid proof format: {}", error_description),
+                        )
+                    },
+                    CommitmentProofEvent::DuplicateProof { 
+                        commitment_hash, proof_hash, previous_verification_status 
+                    } => {
+                        (
+                            "error.duplicate_proof".to_string(),
+                            commitment_hash.clone(),
+                            Some(proof_hash.clone()),
+                            0,
+                            0,
+                            format!("Duplicate proof (previous status: {:?})", 
+                                previous_verification_status),
+                        )
+                    },
+                };
+
             let demo_event = DemoEventDetails {
-                event_id: format!("evt_{}", event.event_id),
-                event_type: event.event_type.clone(),
+                event_id: format!("evt_{:04}", idx),
+                event_type,
                 scenario_id: None,  // Could be mapped from commitment_hash
-                commitment_hash: Some(event.commitment_hash.clone()),
-                proof_hash: event.proof_hash.clone(),
-                block_height: event.block_height,
-                timestamp: event.timestamp,
-                details: event.details.clone(),
+                commitment_hash: if commitment_hash.is_empty() { None } else { Some(commitment_hash) },
+                proof_hash,
+                block_height,
+                timestamp,
+                details,
             };
             demo_events.push(demo_event);
         }
@@ -528,14 +607,14 @@ impl DemoService {
     pub fn get_dashboard_stats(&self) -> DashboardStats {
         let scenarios = self.scenarios.read().unwrap();
         let node = self.node.clone();
-        let ledger = node.read().unwrap();
+        let n = node.lock().unwrap();
         
         let total_settlements = scenarios.len();
         let completed_settlements = scenarios.values().filter(|s| s.is_complete()).count();
         let in_progress_settlements = total_settlements - completed_settlements;
-        let total_events = ledger.get_all_events().len();
-        let total_commitments = ledger.get_all_commitments().len();
-        let total_proofs = ledger.get_all_proofs().len();
+        let total_events = n.ledger.get_all_events().len();
+        let total_commitments = n.ledger.commitments.len();
+        let total_proofs = n.ledger.proofs.len();
         
         // Calculate total value
         let total_value: u128 = scenarios.values().map(|s| s.config.amount).sum();
@@ -554,7 +633,7 @@ impl DemoService {
             total_commitments,
             total_proofs,
             total_value_formatted,
-            block_height: ledger.get_block_height(),
+            block_height: n.ledger.block_height,
         }
     }
 }
@@ -576,10 +655,10 @@ pub struct DashboardStats {
 mod tests {
     use super::*;
     use crate::node::Node;
-    use std::sync::{Arc, RwLock};
+    use std::sync::{Arc, Mutex};
 
     fn create_test_service() -> DemoService {
-        let node = Arc::new(RwLock::new(Node::new()));
+        let node = Arc::new(Mutex::new(Node::new("admin".to_string())));
         DemoService::new(node)
     }
 

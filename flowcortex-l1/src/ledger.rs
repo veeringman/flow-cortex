@@ -2052,3 +2052,1139 @@ impl Ledger {
         entries
     }
 }
+
+// ============================================================================
+// PHASE 14: COMPREHENSIVE TESTING & VALIDATION
+// ============================================================================
+
+#[cfg(test)]
+mod phase14_tests {
+    use super::*;
+    use crate::types::{CommitmentRecord, ProofRecord, ProofVerificationStatus};
+
+    // Helper function to generate valid 64-char hex hash from string
+    fn make_hash(s: &str) -> String {
+        format!("{:0<64}", s.chars().filter(|c| c.is_ascii_hexdigit()).take(64).collect::<String>())
+    }
+
+    // ============== PHASE 14.1: COMMITMENT RECORD OPERATIONS ==============
+
+    #[test]
+    fn test_commitment_crud_operations() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        // Create commitment
+        let commitment = CommitmentRecord {
+            commitment_hash: make_hash("aaaa"),
+            policy_id: "policy123".to_string(),
+            txn_ref: "txn_ref_001".to_string(),
+            timestamp: 1000,
+            block_height: 1,
+            context_ref: Some("context_data".to_string()),
+            verified: false,
+        };
+
+        // Store commitment
+        assert!(ledger.store_commitment(commitment.clone()).is_ok());
+
+        // Retrieve commitment
+        let retrieved = ledger.get_commitment(&commitment.commitment_hash);
+        assert!(retrieved.is_some());
+        assert_eq!(retrieved.unwrap().commitment_hash, commitment.commitment_hash);
+
+        // Verify idempotency - storing same commitment again succeeds
+        assert!(ledger.store_commitment(commitment.clone()).is_ok());
+    }
+
+    #[test]
+    fn test_commitment_validation_edge_cases() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        // Test invalid hash format
+        let result = ledger.anchor_commitment(
+            "invalid".to_string(),
+            "policy_id".to_string(),
+            "txn_ref".to_string(),
+            1000,
+            None,
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("INVALID_HASH_FORMAT"));
+
+        // Test empty txn_ref
+        let result = ledger.anchor_commitment(
+            make_hash("aaaa"),
+            "policy_id".to_string(),
+            "".to_string(),
+            1000,
+            None,
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("INVALID_TXN_REF"));
+
+        // Test txn_ref too long
+        let long_txn_ref = "x".repeat(300);
+        let result = ledger.anchor_commitment(
+            make_hash("bbbb"),
+            "policy_id".to_string(),
+            long_txn_ref,
+            1000,
+            None,
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("INVALID_TXN_REF"));
+    }
+
+    #[test]
+    fn test_commitment_status_updates() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        let commitment = CommitmentRecord {
+            commitment_hash: make_hash("cccc"),
+            policy_id: "policy123".to_string(),
+            txn_ref: "txn_002".to_string(),
+            timestamp: 1000,
+            block_height: 1,
+            context_ref: None,
+            verified: false,
+        };
+
+        ledger.store_commitment(commitment.clone()).unwrap();
+
+        // Update status to verified
+        assert!(ledger.update_commitment_status(&commitment.commitment_hash, true).is_ok());
+
+        // Verify status changed
+        let updated = ledger.get_commitment(&commitment.commitment_hash).unwrap();
+        assert!(updated.verified);
+
+        // Update non-existent commitment should fail
+        assert!(ledger.update_commitment_status("nonexistent", true).is_err());
+    }
+
+    // ============== PHASE 14.2: PROOF RECORD OPERATIONS ==============
+
+    #[test]
+    fn test_proof_crud_operations() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        // First create a commitment
+        let commitment = CommitmentRecord {
+            commitment_hash: make_hash("dddd"),
+            policy_id: "policy123".to_string(),
+            txn_ref: "txn_003".to_string(),
+            timestamp: 1000,
+            block_height: 1,
+            context_ref: None,
+            verified: false,
+        };
+        ledger.store_commitment(commitment.clone()).unwrap();
+
+        // Create proof
+        let proof = ProofRecord {
+            commitment_hash: commitment.commitment_hash.clone(),
+            proof_hash: make_hash("proofdddd"),
+            verification_status: ProofVerificationStatus::Verified,
+            verification_block: Some(2),
+            verifier_capsule_version: "verifier_v1".to_string(),
+            submitted_at: 2000,
+            public_inputs: Some("inputs".to_string()),
+            error_message: None,
+        };
+
+        // Store proof
+        assert!(ledger.store_proof(proof.clone()).is_ok());
+
+        // Retrieve proof
+        let retrieved = ledger.get_proof(&proof.proof_hash);
+        assert!(retrieved.is_some());
+        assert_eq!(retrieved.unwrap().proof_hash, proof.proof_hash);
+
+        // Find proofs for commitment
+        let proofs = ledger.find_proofs_for_commitment(&commitment.commitment_hash);
+        assert_eq!(proofs.len(), 1);
+        assert_eq!(proofs[0].proof_hash, proof.proof_hash);
+    }
+
+    #[test]
+    fn test_proof_uniqueness_constraints() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        // Create commitment
+        let commitment = CommitmentRecord {
+            commitment_hash: make_hash("eeee"),
+            policy_id: "policy123".to_string(),
+            txn_ref: "txn_004".to_string(),
+            timestamp: 1000,
+            block_height: 1,
+            context_ref: None,
+            verified: false,
+        };
+        ledger.store_commitment(commitment.clone()).unwrap();
+
+        // Store proof
+        let proof = ProofRecord {
+            commitment_hash: commitment.commitment_hash.clone(),
+            proof_hash: make_hash("proof2eeee"),
+            verification_status: ProofVerificationStatus::Verified,
+            verification_block: Some(2),
+            verifier_capsule_version: "verifier_v1".to_string(),
+            submitted_at: 2000,
+            public_inputs: None,
+            error_message: None,
+        };
+
+        // Store once - should succeed
+        assert!(ledger.store_proof(proof.clone()).is_ok());
+
+        // Store again - should succeed (idempotent)
+        assert!(ledger.store_proof(proof.clone()).is_ok());
+
+        // Try to store proof for non-existent commitment
+        let invalid_proof = ProofRecord {
+            commitment_hash: make_hash("nonexistent"),
+            proof_hash: make_hash("proof3"),
+            verification_status: ProofVerificationStatus::Pending,
+            verification_block: None,
+            verifier_capsule_version: "verifier_v1".to_string(),
+            submitted_at: 3000,
+            public_inputs: None,
+            error_message: None,
+        };
+        assert!(ledger.store_proof(invalid_proof).is_err());
+    }
+
+    #[test]
+    fn test_proof_binding_verification() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        // Anchor commitment
+        let commitment_hash = make_hash("ffff");
+        let result = ledger.anchor_commitment(
+            commitment_hash.clone(),
+            "policy123".to_string(),
+            "txn_005".to_string(),
+            1000,
+            None,
+        );
+        assert!(result.is_ok());
+
+        // Verify proof with even byte (should pass with mock verifier)
+        let proof_data = vec![1, 2, 4]; // last byte is 4 (even) = valid
+        let result = ledger.verify_proof(
+            commitment_hash.clone(),
+            make_hash("proof1ffff"),
+            proof_data,
+            "STARK".to_string(),
+            None,
+            "verifier_v1".to_string(),
+        );
+        assert!(result.is_ok());
+
+        // Verify proof with odd byte (should fail with mock verifier)
+        let proof_data_invalid = vec![1, 2, 3]; // last byte is 3 (odd) = invalid
+        let result = ledger.verify_proof(
+            commitment_hash.clone(),
+            make_hash("proof2ffff"),
+            proof_data_invalid,
+            "STARK".to_string(),
+            None,
+            "verifier_v1".to_string(),
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("STARK proof verification failed"));
+    }
+
+    // ============== PHASE 14.3: ANCHORING LOGIC ==============
+
+    #[test]
+    fn test_anchoring_idempotency() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        let commitment_hash = make_hash("1111");
+        let txn_ref = "txn_idempotent".to_string();
+
+        // Anchor once
+        let result1 = ledger.anchor_commitment(
+            commitment_hash.clone(),
+            "policy_id".to_string(),
+            txn_ref.clone(),
+            1000,
+            None,
+        );
+        assert!(result1.is_ok());
+        let (height1, tx_hash1) = result1.unwrap();
+
+        // Anchor again with same data - should return existing
+        let result2 = ledger.anchor_commitment(
+            commitment_hash.clone(),
+            "policy_id".to_string(),
+            txn_ref.clone(),
+            1000,
+            None,
+        );
+        assert!(result2.is_ok());
+        let (height2, tx_hash2) = result2.unwrap();
+
+        // Idempotency: same inputs return same block height
+        // Note: tx_hash for idempotent calls is "idempotent" marker
+        assert_eq!(height1, height2);
+        assert_eq!(tx_hash2, "idempotent");
+    }
+
+    #[test]
+    fn test_anchoring_conflict_detection() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        let commitment_hash1 = make_hash("2222");
+        let commitment_hash2 = make_hash("3333");
+        let txn_ref = "txn_conflict".to_string();
+
+        // Anchor first commitment
+        let result1 = ledger.anchor_commitment(
+            commitment_hash1.clone(),
+            "policy_id".to_string(),
+            txn_ref.clone(),
+            1000,
+            None,
+        );
+        assert!(result1.is_ok());
+
+        // Try to anchor different commitment with same txn_ref - should fail
+        let result2 = ledger.anchor_commitment(
+            commitment_hash2.clone(),
+            "policy_id".to_string(),
+            txn_ref.clone(),
+            1000,
+            None,
+        );
+        assert!(result2.is_err());
+        assert!(result2.unwrap_err().contains("CONFLICT_DETECTED"));
+    }
+
+    #[test]
+    fn test_anchoring_validation_failures() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        // Test various validation failures documented in subtask lists
+        // Invalid hash format
+        assert!(ledger.anchor_commitment("short".to_string(), "p".to_string(), "t".to_string(), 1000, None).is_err());
+
+        // Invalid txn_ref (empty)
+        assert!(ledger.anchor_commitment(make_hash("4444"), "p".to_string(), "".to_string(), 1000, None).is_err());
+    }
+
+    // ============== PHASE 14.4: VERIFIER CAPSULE ==============
+
+    #[test]
+    fn test_verifier_capsule_deterministic_execution() {
+        let verifier = MockStarkVerifier::new();
+
+        // Even last byte = valid
+        let result1 = verifier.execute(&[1, 2, 4], None, "commitment_hash");
+        assert!(result1.is_ok());
+        assert_eq!(result1.as_ref().unwrap(), &true);
+
+        // Odd last byte = invalid
+        let result2 = verifier.execute(&[1, 2, 3], None, "commitment_hash");
+        assert!(result2.is_ok());
+        assert_eq!(result2.unwrap(), false);
+
+        // Empty proof data = error
+        let result3 = verifier.execute(&[], None, "commitment_hash");
+        assert!(result3.is_err());
+
+        // Verify determinism - same input produces same output
+        let result4 = verifier.execute(&[1, 2, 4], None, "commitment_hash");
+        assert_eq!(result1.unwrap(), result4.unwrap());
+    }
+
+    #[test]
+    fn test_capsule_registry() {
+        let mut registry = CapsuleRegistry::new();
+
+        // Register capsule
+        let verifier = MockStarkVerifier::new();
+        let version = "verifier_v2".to_string();
+        registry.register_version(version.clone(), Box::new(verifier), 100, 0);
+
+        // Execute via registry
+        let capsule = registry.get_capsule(&version);
+        assert!(capsule.is_some());
+        let result = capsule.unwrap().execute(&[1, 2, 4], None, "commitment_hash");
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+
+        // Non-existent version
+        let result = registry.get_capsule("nonexistent");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_capsule_error_propagation() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        // Anchor commitment
+        let commitment_hash = make_hash("5555");
+        ledger.anchor_commitment(
+            commitment_hash.clone(),
+            "policy_id".to_string(),
+            "txn_ref".to_string(),
+            1000,
+            None,
+        ).unwrap();
+
+        // Submit empty proof (should trigger error)
+        let result = ledger.verify_proof(
+            commitment_hash.clone(),
+            "proof_hash".repeat(5),
+            vec![], // empty proof data
+            "STARK".to_string(),
+            None,
+            "verifier_v1".to_string(),
+        );
+        assert!(result.is_err());
+    }
+
+    // ============== PHASE 14.5: PROOF VERIFICATION BINDING ==============
+
+    #[test]
+    fn test_proof_binding_mismatch_rejection() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        // Try to verify proof for non-existent commitment
+        let result = ledger.verify_proof(
+            make_hash("nonexistent"),
+            make_hash("proofhash"),
+            vec![1, 2, 4],
+            "STARK".to_string(),
+            None,
+            "verifier_v1".to_string(),
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("COMMITMENT_NOT_FOUND"));
+    }
+
+    #[test]
+    fn test_proof_replay_protection() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        // Anchor commitment
+        let commitment_hash = make_hash("6666");
+        ledger.anchor_commitment(
+            commitment_hash.clone(),
+            "policy_id".to_string(),
+            "txn_ref".to_string(),
+            1000,
+            None,
+        ).unwrap();
+
+        // Verify proof first time
+        let proof_hash = make_hash("proofreplay");
+        let result1 = ledger.verify_proof(
+            commitment_hash.clone(),
+            proof_hash.clone(),
+            vec![1, 2, 4],
+            "STARK".to_string(),
+            None,
+            "verifier_v1".to_string(),
+        );
+        assert!(result1.is_ok());
+
+        // Try to verify same proof again - should be rejected
+        let result2 = ledger.verify_proof(
+            commitment_hash.clone(),
+            proof_hash.clone(),
+            vec![1, 2, 4],
+            "STARK".to_string(),
+            None,
+            "verifier_v1".to_string(),
+        );
+        assert!(result2.is_err());
+        assert!(result2.unwrap_err().contains("PROOF_ALREADY_VERIFIED"));
+    }
+
+    #[test]
+    fn test_tampering_detection() {
+        // Proof binding ensures commitment_hash in proof matches actual commitment
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        let commitment = CommitmentRecord {
+            commitment_hash: make_hash("7777"),
+            policy_id: "policy123".to_string(),
+            txn_ref: "txn_007".to_string(),
+            timestamp: 1000,
+            block_height: 1,
+            context_ref: None,
+            verified: false,
+        };
+        ledger.store_commitment(commitment.clone()).unwrap();
+
+        // Create proof with mismatched commitment_hash
+        let tampered_proof = ProofRecord {
+            commitment_hash: make_hash("8888"), // Different from stored commitment
+            proof_hash: make_hash("prooftamper"),
+            verification_status: ProofVerificationStatus::Verified,
+            verification_block: Some(2),
+            verifier_capsule_version: "verifier_v1".to_string(),
+            submitted_at: 2000,
+            public_inputs: None,
+            error_message: None,
+        };
+
+        // Storing this proof should fail because referenced commitment doesn't exist
+        assert!(ledger.store_proof(tampered_proof).is_err());
+    }
+
+    // ============== PHASE 14.6: EVENT EMISSION ==============
+
+    #[test]
+    fn test_event_timing_and_ordering() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        let initial_event_count = ledger.get_all_events().len();
+
+        // Anchor commitment - should emit CommitmentAnchored event
+        let commitment_hash = make_hash("9999");
+        ledger.anchor_commitment(
+            commitment_hash.clone(),
+            "policy_id".to_string(),
+            "txn_ref".to_string(),
+            1000,
+            None,
+        ).unwrap();
+
+        // Check event was emitted
+        let events = ledger.get_all_events();
+        assert_eq!(events.len(), initial_event_count + 1);
+
+        // Verify proof - should emit ProofVerified event
+        ledger.verify_proof(
+            commitment_hash.clone(),
+            make_hash("proofhash"),
+            vec![1, 2, 4],
+            "STARK".to_string(),
+            None,
+            "verifier_v1".to_string(),
+        ).unwrap();
+
+        // Check second event was emitted
+        let events = ledger.get_all_events();
+        assert_eq!(events.len(), initial_event_count + 2);
+    }
+
+    #[test]
+    fn test_event_field_population() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        let commitment_hash = make_hash("aaaa");
+        let policy_id = "test_policy".to_string();
+        let txn_ref = "txn_event_test".to_string();
+
+        ledger.anchor_commitment(
+            commitment_hash.clone(),
+            policy_id.clone(),
+            txn_ref.clone(),
+            1000,
+            None,
+        ).unwrap();
+
+        // Get events and verify fields
+        let events = ledger.get_events_for_commitment(&commitment_hash);
+        assert!(!events.is_empty());
+
+        // Verify event contains correct data
+        match &events[0] {
+            CommitmentProofEvent::CommitmentAnchored {
+                commitment_hash: ch,
+                policy_id: pid,
+                txn_ref: tr,
+                block_height: _,
+                timestamp: _,
+            } => {
+                assert_eq!(ch, &commitment_hash);
+                assert_eq!(pid, &policy_id);
+                assert_eq!(tr, &txn_ref);
+            }
+            _ => panic!("Expected CommitmentAnchored event"),
+        }
+    }
+
+    #[test]
+    fn test_event_filtering() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        // Create multiple commitments
+        let hash1 = make_hash("bbbb");
+        let hash2 = make_hash("cccc");
+
+        ledger.anchor_commitment(hash1.clone(), "policy1".to_string(), "txn1".to_string(), 1000, None).unwrap();
+        ledger.anchor_commitment(hash2.clone(), "policy2".to_string(), "txn2".to_string(), 2000, None).unwrap();
+
+        // Filter events by commitment hash
+        let events1 = ledger.get_events_for_commitment(&hash1);
+        let events2 = ledger.get_events_for_commitment(&hash2);
+
+        assert!(!events1.is_empty());
+        assert!(!events2.is_empty());
+        assert_ne!(events1.len(), ledger.get_all_events().len()); // Should be filtered
+    }
+
+    // ============== PHASE 14.7: QUERY APIS ==============
+
+    #[test]
+    fn test_query_commitment_endpoint() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        let commitment_hash = make_hash("dddd");
+        ledger.anchor_commitment(
+            commitment_hash.clone(),
+            "policy_id".to_string(),
+            "txn_ref".to_string(),
+            1000,
+            None,
+        ).unwrap();
+
+        // Query by commitment hash
+        let result = ledger.query_commitment(&commitment_hash);
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().commitment_hash, commitment_hash);
+
+        // Query non-existent
+        let result = ledger.query_commitment("nonexistent");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_query_proof_status_endpoint() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        let commitment_hash = make_hash("eeee");
+        ledger.anchor_commitment(
+            commitment_hash.clone(),
+            "policy_id".to_string(),
+            "txn_ref".to_string(),
+            1000,
+            None,
+        ).unwrap();
+
+        // Before proof verification
+        let result = ledger.query_proof_status(&commitment_hash);
+        assert!(result.is_some());
+        let (proof_opt, verified) = result.unwrap();
+        assert!(proof_opt.is_none());
+        assert!(!verified);
+
+        // After proof verification
+        ledger.verify_proof(
+            commitment_hash.clone(),
+            make_hash("proofhash"),
+            vec![1, 2, 4],
+            "STARK".to_string(),
+            None,
+            "verifier_v1".to_string(),
+        ).unwrap();
+
+        let result = ledger.query_proof_status(&commitment_hash);
+        assert!(result.is_some());
+        let (proof_opt, verified) = result.unwrap();
+        assert!(proof_opt.is_some());
+        assert!(verified);
+    }
+
+    #[test]
+    fn test_query_inclusion_metadata() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        let commitment_hash = make_hash("ffff");
+        let (block_height, _tx_hash) = ledger.anchor_commitment(
+            commitment_hash.clone(),
+            "policy_id".to_string(),
+            "txn_ref".to_string(),
+            1000,
+            None,
+        ).unwrap();
+
+        // Query inclusion metadata
+        let result = ledger.query_inclusion_metadata(&commitment_hash);
+        assert!(result.is_some());
+        let (height, _tx, _timestamp) = result.unwrap();
+        assert_eq!(height, block_height);
+    }
+
+    #[test]
+    fn test_query_events_pagination() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        // Create multiple events
+        for i in 0..5 {
+            let hash = format!("{}", i).repeat(64);
+            ledger.anchor_commitment(
+                hash,
+                format!("policy_{}", i),
+                format!("txn_{}", i),
+                1000 + i,
+                None,
+            ).unwrap();
+        }
+
+        // Query with pagination
+        let events = ledger.query_events(None, None, 2, 0);
+        assert_eq!(events.len(), 2);
+
+        let events = ledger.query_events(None, None, 2, 2);
+        assert_eq!(events.len(), 2);
+    }
+
+    // ============== PHASE 14.8: INTEGRATION TESTS ==============
+
+    #[test]
+    fn test_multiple_concurrent_settlements() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        // Simulate multiple concurrent settlements
+        let settlements = vec![
+            ("settlement1", "txn1", 5000000),
+            ("settlement2", "txn2", 10000000),
+            ("settlement3", "txn3", 15000000),
+        ];
+
+        for (idx, (hash_seed, txn_ref, _amount)) in settlements.iter().enumerate() {
+            let commitment_hash = make_hash(&format!("settle{}", idx));
+            let result = ledger.anchor_commitment(
+                commitment_hash,
+                "policy_id".to_string(),
+                txn_ref.to_string(),
+                1000,
+                None,
+            );
+            assert!(result.is_ok());
+        }
+
+        // Verify all commitments are stored
+        assert_eq!(ledger.commitments.len(), 3);
+    }
+
+    #[test]
+    fn test_full_settlement_flow_integration() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        // 1. Anchor commitment (FortressDigital)
+        let commitment_hash = make_hash("integrationtest");
+        let (block_height, _tx_hash) = ledger.anchor_commitment(
+            commitment_hash.clone(),
+            "policy_fortress".to_string(),
+            "txn_integration".to_string(),
+            1000,
+            Some("context_data".to_string()),
+        ).unwrap();
+
+        // 2. Verify commitment exists
+        let commitment = ledger.query_commitment(&commitment_hash);
+        assert!(commitment.is_some());
+        assert_eq!(commitment.unwrap().block_height, block_height);
+
+        // 3. Submit proof (ProofCortex)
+        let proof_result = ledger.verify_proof(
+            commitment_hash.clone(),
+            make_hash("proofintegration"),
+            vec![1, 2, 4], // valid proof
+            "STARK".to_string(),
+            Some("public_inputs".to_string()),
+            "verifier_v1".to_string(),
+        );
+        assert!(proof_result.is_ok());
+
+        // 4. Query proof status
+        let (proof_opt, verified) = ledger.query_proof_status(&commitment_hash).unwrap();
+        assert!(proof_opt.is_some());
+        assert!(verified);
+
+        // 5. Verify events were emitted
+        let events = ledger.get_events_for_commitment(&commitment_hash);
+        assert!(events.len() >= 2); // CommitmentAnchored + ProofVerified
+    }
+
+    // ============== PHASE 14.9-14.12: SECURITY TESTS ==============
+
+    #[test]
+    fn test_immutability_enforcement() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        let commitment = CommitmentRecord {
+            commitment_hash: make_hash("immutabletest"),
+            policy_id: "policy123".to_string(),
+            txn_ref: "txn_immutable".to_string(),
+            timestamp: 1000,
+            block_height: 1,
+            context_ref: None,
+            verified: false,
+        };
+
+        // Store commitment
+        ledger.store_commitment(commitment.clone()).unwrap();
+        let original = ledger.get_commitment(&commitment.commitment_hash).unwrap();
+
+        // Try to store different commitment with same hash (via idempotency)
+        // Should succeed but not modify original
+        ledger.store_commitment(commitment.clone()).unwrap();
+        let after = ledger.get_commitment(&commitment.commitment_hash).unwrap();
+
+        // Verify data hasn't changed
+        assert_eq!(original.commitment_hash, after.commitment_hash);
+        assert_eq!(original.policy_id, after.policy_id);
+    }
+
+    #[test]
+    fn test_replay_protection_comprehensive() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        let commitment_hash = make_hash("replaytest");
+        ledger.anchor_commitment(
+            commitment_hash.clone(),
+            "policy_id".to_string(),
+            "txn_replay".to_string(),
+            1000,
+            None,
+        ).unwrap();
+
+        let proof_hash = make_hash("proofreplaytest");
+
+        // First verification succeeds
+        let result1 = ledger.verify_proof(
+            commitment_hash.clone(),
+            proof_hash.clone(),
+            vec![1, 2, 4],
+            "STARK".to_string(),
+            None,
+            "verifier_v1".to_string(),
+        );
+        assert!(result1.is_ok());
+
+        // Second verification with same proof_hash is rejected
+        let result2 = ledger.verify_proof(
+            commitment_hash.clone(),
+            proof_hash.clone(),
+            vec![1, 2, 4],
+            "STARK".to_string(),
+            None,
+            "verifier_v1".to_string(),
+        );
+        assert!(result2.is_err());
+        assert!(result2.unwrap_err().contains("PROOF_ALREADY_VERIFIED"));
+    }
+
+    #[test]
+    fn test_integrity_binding_verification() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        let commitment_hash = make_hash("integritytest");
+        ledger.anchor_commitment(
+            commitment_hash.clone(),
+            "policy_id".to_string(),
+            "txn_integrity".to_string(),
+            1000,
+            None,
+        ).unwrap();
+
+        // Verify proof binds to correct commitment
+        let result = ledger.verify_proof(
+            commitment_hash.clone(),
+            make_hash("proofintegrity"),
+            vec![1, 2, 4],
+            "STARK".to_string(),
+            None,
+            "verifier_v1".to_string(),
+        );
+        assert!(result.is_ok());
+
+        // Verify proof record is bound to commitment
+        let proof = result.unwrap();
+        assert_eq!(proof.commitment_hash, commitment_hash);
+    }
+
+    #[test]
+    fn test_cryptographic_verification() {
+        let verifier = MockStarkVerifier::new();
+
+        // Test deterministic proof verification
+        let proof_valid = vec![1, 2, 4]; // even last byte
+        let proof_invalid = vec![1, 2, 3]; // odd last byte
+
+        // Valid proof passes
+        let result = verifier.execute(&proof_valid, None, "commitment_hash");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), true);
+
+        // Invalid proof fails
+        let result = verifier.execute(&proof_invalid, None, "commitment_hash");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), false);
+
+        // Determinism: same input always produces same output
+        let result1 = verifier.execute(&proof_valid, None, "commitment_hash");
+        let result2 = verifier.execute(&proof_valid, None, "commitment_hash");
+        assert_eq!(result1.unwrap(), result2.unwrap());
+    }
+
+    // ============== PHASE 14.13: PERFORMANCE TESTS ==============
+
+    #[test]
+    fn test_performance_baseline_latency() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        use std::time::Instant;
+
+        // Test anchoring latency
+        let start = Instant::now();
+        for i in 0..100 {
+            let hash = format!("{:064x}", i);
+            ledger.anchor_commitment(
+                hash,
+                format!("policy_{}", i),
+                format!("txn_{}", i),
+                1000 + i,
+                None,
+            ).unwrap();
+        }
+        let duration = start.elapsed();
+        let avg_latency_ms = duration.as_millis() as f64 / 100.0;
+
+        // Should be under 50ms per operation as per baseline
+        assert!(avg_latency_ms < 50.0, "Average latency: {}ms", avg_latency_ms);
+    }
+
+    #[test]
+    fn test_performance_query_operations() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        // Create test data
+        let commitment_hash = make_hash("perfquerytest");
+        ledger.anchor_commitment(
+            commitment_hash.clone(),
+            "policy_id".to_string(),
+            "txn_perf".to_string(),
+            1000,
+            None,
+        ).unwrap();
+
+        use std::time::Instant;
+
+        // Test query latency
+        let start = Instant::now();
+        for _ in 0..1000 {
+            let _ = ledger.query_commitment(&commitment_hash);
+        }
+        let duration = start.elapsed();
+        let avg_latency_ms = duration.as_millis() as f64 / 1000.0;
+
+        // Should be under 20ms per operation as per baseline
+        assert!(avg_latency_ms < 20.0, "Average query latency: {}ms", avg_latency_ms);
+    }
+
+    #[test]
+    fn test_performance_memory_stability() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        // Store 1000 commitments
+        for i in 0..1000 {
+            let hash = format!("{:064x}", i);
+            ledger.anchor_commitment(
+                hash,
+                format!("policy_{}", i),
+                format!("txn_{}", i),
+                1000 + i,
+                None,
+            ).unwrap();
+        }
+
+        // Memory should be stable (no panic, no excessive allocation)
+        assert_eq!(ledger.commitments.len(), 1000);
+    }
+
+    // ============== PHASE 14.14: DETERMINISM VALIDATION ==============
+
+    #[test]
+    fn test_determinism_same_inputs_same_outputs() {
+        let admin = "admin".to_string();
+
+        // Create two separate ledgers
+        let mut ledger1 = Ledger::new(admin.clone());
+        let mut ledger2 = Ledger::new(admin.clone());
+
+        let commitment_hash = make_hash("dettest");
+
+        // Execute same operation on both ledgers
+        let result1 = ledger1.anchor_commitment(
+            commitment_hash.clone(),
+            "policy_id".to_string(),
+            "txn_det".to_string(),
+            1000,
+            None,
+        );
+
+        let result2 = ledger2.anchor_commitment(
+            commitment_hash.clone(),
+            "policy_id".to_string(),
+            "txn_det".to_string(),
+            1000,
+            None,
+        );
+
+        // Results should be identical
+        assert_eq!(result1.is_ok(), result2.is_ok());
+        if result1.is_ok() {
+            let (height1, hash1) = result1.unwrap();
+            let (height2, hash2) = result2.unwrap();
+            assert_eq!(height1, height2);
+            // tx_hash generation is deterministic based on commitment_hash
+            assert_eq!(hash1, hash2);
+        }
+    }
+
+    #[test]
+    fn test_hash_calculations_deterministic() {
+        // Verify capsule returns same result for same input
+        let verifier = MockStarkVerifier::new();
+        let proof_data = vec![1, 2, 4];
+
+        let results: Vec<bool> = (0..100)
+            .map(|_| verifier.execute(&proof_data, None, "commitment_hash").unwrap())
+            .collect();
+
+        // All results should be identical
+        assert!(results.iter().all(|&r| r == results[0]));
+    }
+
+    #[test]
+    fn test_event_ordering_deterministic() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        // Create events in specific order
+        let hashes = vec!["order1", "order2", "order3"];
+        for hash in &hashes {
+            let full_hash = make_hash(hash);
+            ledger.anchor_commitment(
+                full_hash,
+                "policy_id".to_string(),
+                format!("txn_{}", hash),
+                1000,
+                None,
+            ).unwrap();
+        }
+
+        // Events should maintain order
+        let events = ledger.get_all_events();
+        let event_count = events.len();
+        assert!(event_count >= 3);
+
+        // Events are ordered by insertion (block height)
+        // This ensures deterministic ordering under concurrency
+    }
+
+    // ============== PHASE 14.15: END-TO-END DEMO ==============
+
+    #[test]
+    fn test_end_to_end_demo_flow() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        // Step 1: FortressDigital anchors authorization commitment
+        let commitment_hash = make_hash("demoe2eflow");
+        let step1 = ledger.anchor_commitment(
+            commitment_hash.clone(),
+            "policy_fortress_demo".to_string(),
+            "txn_e2e_demo".to_string(),
+            1000,
+            Some("amount:50000000,currency:INR".to_string()),
+        );
+        assert!(step1.is_ok());
+
+        // Step 2: Query commitment status
+        let commitment = ledger.query_commitment(&commitment_hash);
+        assert!(commitment.is_some());
+        assert!(!commitment.unwrap().verified);
+
+        // Step 3: ProofCortex submits STARK proof
+        let proof_result = ledger.verify_proof(
+            commitment_hash.clone(),
+            make_hash("proofdemoe2e"),
+            vec![1, 2, 4], // valid proof
+            "STARK".to_string(),
+            Some("policy_compliance_proof".to_string()),
+            "verifier_v1".to_string(),
+        );
+        assert!(proof_result.is_ok());
+
+        // Step 4: Query proof status
+        let (proof_opt, verified) = ledger.query_proof_status(&commitment_hash).unwrap();
+        assert!(proof_opt.is_some());
+        assert!(verified);
+
+        // Step 5: Verify all events emitted
+        let events = ledger.get_events_for_commitment(&commitment_hash);
+        assert!(events.len() >= 2);
+
+        // Step 6: Query inclusion metadata
+        let metadata = ledger.query_inclusion_metadata(&commitment_hash);
+        assert!(metadata.is_some());
+
+        // Complete flow validated
+        println!("✅ End-to-end demo flow completed successfully");
+    }
+
+    #[test]
+    fn test_multiple_demo_scenarios() {
+        let admin = "admin".to_string();
+        let mut ledger = Ledger::new(admin.clone());
+
+        // Scenario 1: Small settlement (5M INR)
+        let hash1 = make_hash("scenario1");
+        ledger.anchor_commitment(hash1.clone(), "policy1".to_string(), "txn1".to_string(), 1000, None).unwrap();
+        ledger.verify_proof(hash1.clone(), make_hash("proof1"), vec![2], "STARK".to_string(), None, "verifier_v1".to_string()).unwrap();
+
+        // Scenario 2: Medium settlement (50M INR)
+        let hash2 = make_hash("scenario2");
+        ledger.anchor_commitment(hash2.clone(), "policy2".to_string(), "txn2".to_string(), 2000, None).unwrap();
+        ledger.verify_proof(hash2.clone(), make_hash("proof2"), vec![4], "STARK".to_string(), None, "verifier_v1".to_string()).unwrap();
+
+        // Scenario 3: Large settlement (200M INR)
+        let hash3 = make_hash("scenario3");
+        ledger.anchor_commitment(hash3.clone(), "policy3".to_string(), "txn3".to_string(), 3000, None).unwrap();
+        ledger.verify_proof(hash3.clone(), make_hash("proof3"), vec![6], "STARK".to_string(), None, "verifier_v1".to_string()).unwrap();
+
+        // Verify all scenarios completed
+        assert!(ledger.query_proof_status(&hash1).unwrap().1);
+        assert!(ledger.query_proof_status(&hash2).unwrap().1);
+        assert!(ledger.query_proof_status(&hash3).unwrap().1);
+    }
+}

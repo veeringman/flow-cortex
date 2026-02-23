@@ -8,17 +8,6 @@
     },
     "admin": "admin",
     "tokens": {
-      "flower": {
-        "symbol": "flower",
-        "name": "Flow Dollar",
-        "decimals": 6,
-        "total_supply": 0,
-        "creator": "admin",
-        "token_type": "stablecoin",
-        "status": "active",
-        "created_at": 0,
-        "metadata": null
-      },
       "proof": {
         "symbol": "proof",
         "name": "Proof Token",
@@ -29,11 +18,28 @@
         "status": "active",
         "created_at": 0,
         "metadata": null
+      },
+      "flower": {
+        "symbol": "flower",
+        "name": "Flow Dollar",
+        "decimals": 6,
+        "total_supply": 0,
+        "creator": "admin",
+        "token_type": "stablecoin",
+        "status": "active",
+        "created_at": 0,
+        "metadata": null
       }
     },
     "token_events": [],
     "banks": {},
-    "block_height": 0
+    "block_height": 0,
+    "commitments": {},
+    "proofs": {},
+    "commitment_to_proofs": {},
+    "txn_ref_to_commitment": {},
+    "commitment_proof_events": [],
+    "verified_proofs": []
   },
   "admin": "admin",
   "snapshot_root": [
