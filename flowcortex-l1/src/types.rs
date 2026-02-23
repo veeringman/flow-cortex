@@ -277,3 +277,142 @@ pub struct SignedTransaction {
     pub signature: Vec<u8>,
     pub tx: Transaction,
 }
+
+// ============================================================================
+// DEMO: FortressDigital + ProofCortex Integration Data Models
+// ============================================================================
+
+/// Represents the verification status of a proof
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum ProofVerificationStatus {
+    /// Proof has been submitted but not yet verified
+    Pending,
+    /// Proof has been cryptographically verified and bound to commitment
+    Verified,
+    /// Proof verification failed
+    Failed,
+}
+
+/// Authorization commitment record anchored on FlowCortex
+///
+/// This immutable record represents the exact authorization context under which
+/// a decision (e.g., treasury settlement approval) was made by FortressDigital.
+///
+/// Once anchored, a commitment cannot be modified or deleted, providing a
+/// cryptographic audit trail for regulatory compliance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommitmentRecord {
+    /// Cryptographic hash of the authorization context (from FortressDigital)
+    /// Format: hex-encoded string of H(user_id, device_trust, risk_score, policy_id, decision, txn_bucket, timestamp)
+    pub commitment_hash: String,
+
+    /// Policy identifier that governed this authorization (e.g., "treasury_settlement_v1")
+    pub policy_id: String,
+
+    /// Transaction reference from the originating system (e.g., "TXN-90877")
+    pub txn_ref: String,
+
+    /// Unix timestamp when commitment was generated (from FortressDigital)
+    pub timestamp: u64,
+
+    /// Block height on FlowCortex where this commitment was anchored
+    /// Set when commitment is first persisted; immutable thereafter
+    pub block_height: u64,
+
+    /// Additional context reference for external audit trail lookup
+    pub context_ref: Option<String>,
+
+    /// Whether this commitment has been verified by a proof
+    pub verified: bool,
+}
+
+/// Proof record linked to a commitment
+///
+/// This record represents a STARK zero-knowledge proof that validates
+/// the authorization context captured in a CommitmentRecord.
+///
+/// The proof is cryptographically bound to the commitment hash to ensure
+/// no replay attacks or commitment tampering.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProofRecord {
+    /// Hash of the anchored commitment this proof validates
+    /// Must correspond to an existing CommitmentRecord
+    pub commitment_hash: String,
+
+    /// Cryptographic hash of the STARK proof submitted by ProofCortex
+    /// Used for deduplication and proof reference
+    pub proof_hash: String,
+
+    /// Current verification status of this proof
+    pub verification_status: ProofVerificationStatus,
+
+    /// Block height on FlowCortex where proof was verified
+    /// Set when verification succeeds; None if still pending/failed
+    pub verification_block: Option<u64>,
+
+    /// Version identifier of the Verifier Capsule used (e.g., "verifier_v1")
+    pub verifier_capsule_version: String,
+
+    /// Unix timestamp when proof was submitted
+    pub submitted_at: u64,
+
+    /// Public inputs supplied with the proof (JSON serialized)
+    /// Example: {"policy_id": "treasury_settlement_v1", "txn_amount_bucket": "HIGH"}
+    pub public_inputs: Option<String>,
+
+    /// Error message if verification failed
+    pub error_message: Option<String>,
+}
+
+/// Events emitted by FlowCortex during commitment and proof operations
+/// These events drive UI updates and external system synchronization
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum CommitmentProofEvent {
+    /// Commitment has been immutably anchored on FlowCortex
+    CommitmentAnchored {
+        commitment_hash: String,
+        policy_id: String,
+        txn_ref: String,
+        block_height: u64,
+        timestamp: u64,
+    },
+
+    /// STARK proof has been successfully verified and bound to commitment
+    ProofVerified {
+        commitment_hash: String,
+        proof_hash: String,
+        verification_block: u64,
+        verified_at: u64,
+        verifier_capsule_version: String,
+    },
+
+    /// Proof verification failed (cryptographic validation or binding error)
+    ProofVerificationFailed {
+        commitment_hash: String,
+        proof_hash: String,
+        error_reason: String,
+        block_height: u64,
+        failed_at: u64,
+    },
+
+    /// Proof submission was made for a missing commitment (error condition)
+    CommitmentNotFound {
+        commitment_hash: String,
+        proof_hash: String,
+        submitted_at: u64,
+    },
+
+    /// Proof format or structure was invalid
+    InvalidProofFormat {
+        error_description: String,
+        submitted_at: u64,
+    },
+
+    /// Proof already exists for this commitment (duplicate submission)
+    DuplicateProof {
+        commitment_hash: String,
+        proof_hash: String,
+        previous_verification_status: ProofVerificationStatus,
+    },
+}

@@ -209,6 +209,77 @@ message DailyLimitResponse {
     string error = 2;
 }
 
+// ============== COMMITMENT & PROOF MESSAGES (PHASE 2-4) ==============
+
+message AnchorCommitmentRequest {
+    string commitment_hash = 1;     // SHA256 hash of commitment data (64 hex chars)
+    string policy_id = 2;           // Policy that governed authorization
+    string txn_ref = 3;             // External transaction reference
+    uint64 timestamp = 4;           // Unix timestamp from FortressDigital
+    string context_ref = 5;         // Optional external audit trail reference
+    string metadata_json = 6;       // Additional context (optional)
+}
+
+message AnchorCommitmentResponse {
+    bool success = 1;
+    string commitment_hash = 2;
+    uint64 block_height = 3;        // Block height where anchored
+    string tx_hash = 4;             // L1 transaction hash
+    uint64 anchored_at = 5;         // Timestamp when anchored
+    string error_code = 6;          // Error code if failed (optional)
+    string error_message = 7;       // Error message if failed (optional)
+}
+
+message GetCommitmentRequest {
+    string commitment_hash = 1;
+}
+
+message GetCommitmentResponse {
+    bool success = 1;
+    string commitment_hash = 2;
+    string policy_id = 3;
+    string txn_ref = 4;
+    uint64 timestamp = 5;
+    uint64 block_height = 6;
+    bool verified = 7;
+    string context_ref = 8;
+    string error = 9;
+}
+
+message VerifyProofRequest {
+    string commitment_hash = 1;     // Which commitment to verify
+    string proof_hash = 2;          // Unique proof identifier
+    bytes proof_data = 3;           // STARK proof bytecode
+    string proof_type = 4;          // "STARK", etc.
+    string public_inputs_json = 5;  // Proof public inputs
+}
+
+message VerifyProofResponse {
+    bool success = 1;
+    string commitment_hash = 2;
+    string proof_hash = 3;
+    bool verified = 4;              // Verification result
+    uint64 block_height = 5;        // Block height when verified
+    string verifier_capsule_version = 6;
+    string error_code = 7;          // Error code if failed
+    string error_message = 8;       // Error message if failed
+}
+
+message GetProofRequest {
+    string proof_hash = 1;
+}
+
+message GetProofResponse {
+    bool success = 1;
+    string proof_hash = 2;
+    string commitment_hash = 3;
+    string verification_status = 4; // "PENDING", "VERIFIED", "FAILED"
+    uint64 submitted_at = 5;
+    uint64 verification_block = 6;
+    string error_message = 7;
+    string error = 8;
+}
+
 // ============== SERVICES ==============
 
 service L1 {
@@ -256,4 +327,16 @@ service Admin {
     rpc FreezeToken(FreezeTokenRequest) returns (FreezeTokenResponse);
     rpc UnfreezeToken(FreezeTokenRequest) returns (FreezeTokenResponse);
     rpc SetDailyLimit(DailyLimitRequest) returns (DailyLimitResponse);
+}
+
+// Commitment anchoring service (Phase 2)
+service CommitmentAnchor {
+    rpc AnchorCommitment(AnchorCommitmentRequest) returns (AnchorCommitmentResponse);
+    rpc GetCommitment(GetCommitmentRequest) returns (GetCommitmentResponse);
+}
+
+// Proof verification service (Phase 4)
+service ProofVerifier {
+    rpc VerifyProof(VerifyProofRequest) returns (VerifyProofResponse);
+    rpc GetProof(GetProofRequest) returns (GetProofResponse);
 }
