@@ -281,6 +281,24 @@
                             <i class="fas fa-key mr-2"></i>Wallet
                         </button>
                     </li>
+                    <li class="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+                        <span class="px-4 text-xs font-semibold uppercase text-gray-400 dark:text-gray-500">Compliance</span>
+                    </li>
+                    <li>
+                        <button onclick="switchTab('commitments')" class="tab-button w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                            <i class="fas fa-lock mr-2"></i>Commitments
+                        </button>
+                    </li>
+                    <li>
+                        <button onclick="switchTab('proofs')" class="tab-button w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                            <i class="fas fa-shield-alt mr-2"></i>Proofs
+                        </button>
+                    </li>
+                    <li>
+                        <button onclick="switchTab('events')" class="tab-button w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                            <i class="fas fa-stream mr-2"></i>Events
+                        </button>
+                    </li>
                 </ul>
             </nav>
 
@@ -693,6 +711,230 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Commitments Tab -->
+                    <div id="commitments-content" class="tab-content hidden">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="card p-6">
+                                <div class="section-header">
+                                    <i class="fas fa-plus-circle"></i>
+                                    <h3 class="text-lg font-semibold">Anchor Commitment</h3>
+                                </div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Anchor a compliance commitment to the FlowCortex L1 chain.</p>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Commitment Hash</label>
+                                        <input id="commit-hash" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-xs" placeholder="sha256 hash of the commitment payload" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Policy ID</label>
+                                        <input id="commit-policy" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" placeholder="e.g. KYC-AML-2024" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Transaction Reference</label>
+                                        <input id="commit-txnref" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" placeholder="settlement tx reference" />
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium mb-2">Timestamp</label>
+                                            <input id="commit-timestamp" type="datetime-local" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-2">Context Ref (optional)</label>
+                                            <input id="commit-context" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" placeholder="capsule / audit ref" />
+                                        </div>
+                                    </div>
+                                    <button onclick="anchorCommitment()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium bg-blue-600 hover:bg-blue-700">
+                                        <i class="fas fa-lock mr-2"></i>Anchor Commitment
+                                    </button>
+                                </div>
+                                <div id="commit-anchor-output" class="output-box hidden mt-4"></div>
+                            </div>
+
+                            <div class="card p-6">
+                                <div class="section-header">
+                                    <i class="fas fa-search"></i>
+                                    <h3 class="text-lg font-semibold">Query Commitment</h3>
+                                </div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Look up an anchored commitment by its hash.</p>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Commitment Hash</label>
+                                        <input id="query-commit-hash" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-xs" placeholder="commitment hash to look up" />
+                                    </div>
+                                    <button onclick="queryCommitment()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium">
+                                        <i class="fas fa-search mr-2"></i>Query
+                                    </button>
+                                </div>
+                                <div id="commit-query-output" class="output-box hidden mt-4"></div>
+
+                                <div class="border-t border-gray-200 dark:border-gray-700 mt-6 pt-4">
+                                    <div class="section-header">
+                                        <i class="fas fa-chart-bar"></i>
+                                        <h3 class="text-lg font-semibold">Commitment Stats</h3>
+                                    </div>
+                                    <button onclick="loadCommitmentStats()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium mt-4 bg-indigo-600 hover:bg-indigo-700">
+                                        <i class="fas fa-sync mr-2"></i>Load Stats
+                                    </button>
+                                    <div id="commit-stats-output" class="hidden mt-4">
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
+                                                <p class="text-2xl font-bold text-blue-600" id="stat-total-commitments">-</p>
+                                                <p class="text-xs text-gray-500">Total Commitments</p>
+                                            </div>
+                                            <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
+                                                <p class="text-2xl font-bold text-green-600" id="stat-verified-proofs">-</p>
+                                                <p class="text-xs text-gray-500">Verified Proofs</p>
+                                            </div>
+                                            <div class="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-center">
+                                                <p class="text-2xl font-bold text-orange-600" id="stat-pending-proofs">-</p>
+                                                <p class="text-xs text-gray-500">Pending Proofs</p>
+                                            </div>
+                                            <div class="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-center">
+                                                <p class="text-2xl font-bold text-purple-600" id="stat-total-events">-</p>
+                                                <p class="text-xs text-gray-500">Total Events</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Proofs Tab -->
+                    <div id="proofs-content" class="tab-content hidden">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="card p-6">
+                                <div class="section-header">
+                                    <i class="fas fa-check-double"></i>
+                                    <h3 class="text-lg font-semibold">Verify Proof</h3>
+                                </div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Submit a cryptographic proof for on-chain verification.</p>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Commitment Hash</label>
+                                        <input id="proof-commit-hash" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-xs" placeholder="hash of the commitment to prove" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Proof Hash</label>
+                                        <input id="proof-hash" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-xs" placeholder="hash of the proof payload" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Proof Data (Base64)</label>
+                                        <textarea id="proof-data" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 h-24 font-mono text-xs" placeholder="base64 encoded proof payload"></textarea>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium mb-2">Proof Type</label>
+                                            <select id="proof-type" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+                                                <option value="zk-snark">zk-SNARK</option>
+                                                <option value="zk-stark">zk-STARK</option>
+                                                <option value="merkle">Merkle</option>
+                                                <option value="signature">Signature</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-2">Capsule Version</label>
+                                            <input id="proof-capsule-ver" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" placeholder="v1.0" />
+                                        </div>
+                                    </div>
+                                    <button onclick="verifyProof()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium bg-green-600 hover:bg-green-700">
+                                        <i class="fas fa-shield-alt mr-2"></i>Verify Proof
+                                    </button>
+                                </div>
+                                <div id="proof-verify-output" class="output-box hidden mt-4"></div>
+                            </div>
+
+                            <div class="card p-6">
+                                <div class="section-header">
+                                    <i class="fas fa-clipboard-check"></i>
+                                    <h3 class="text-lg font-semibold">Proof Status</h3>
+                                </div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Check verification status for a commitment's proof.</p>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Commitment Hash</label>
+                                        <input id="proof-status-hash" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-xs" placeholder="commitment hash" />
+                                    </div>
+                                    <button onclick="queryProofStatus()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium">
+                                        <i class="fas fa-search mr-2"></i>Check Status
+                                    </button>
+                                </div>
+                                <div id="proof-status-output" class="output-box hidden mt-4"></div>
+
+                                <div class="border-t border-gray-200 dark:border-gray-700 mt-6 pt-4">
+                                    <h4 class="font-semibold mb-3">Verification States</h4>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                                            <span><strong>Verified</strong> — Proof validated on-chain</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+                                            <span><strong>Pending</strong> — Awaiting verification</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-3 h-3 rounded-full bg-red-500"></span>
+                                            <span><strong>Failed</strong> — Proof did not pass validation</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Events Tab -->
+                    <div id="events-content" class="tab-content hidden">
+                        <div class="card p-6 mb-6">
+                            <div class="section-header">
+                                <i class="fas fa-stream"></i>
+                                <h3 class="text-lg font-semibold">Compliance Event Stream</h3>
+                            </div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Real-time feed of commitment anchoring, proof verification, and compliance events.</p>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Filter by Commitment Hash</label>
+                                    <input id="events-filter-hash" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-xs" placeholder="optional — leave blank for all" />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Limit</label>
+                                    <select id="events-limit" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+                                        <option value="25">25</option>
+                                        <option value="50" selected>50</option>
+                                        <option value="100">100</option>
+                                        <option value="250">250</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-end">
+                                    <button onclick="loadEvents()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium">
+                                        <i class="fas fa-sync mr-2"></i>Load Events
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="events-summary" class="hidden grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"></div>
+
+                        <div class="card p-6">
+                            <div id="events-table-container" class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="border-b border-gray-200 dark:border-gray-700">
+                                            <th class="text-left py-3 px-2 font-semibold">Type</th>
+                                            <th class="text-left py-3 px-2 font-semibold">Commitment</th>
+                                            <th class="text-left py-3 px-2 font-semibold">Block</th>
+                                            <th class="text-left py-3 px-2 font-semibold">Verified</th>
+                                            <th class="text-left py-3 px-2 font-semibold">Timestamp</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="events-tbody">
+                                        <tr><td colspan="5" class="py-4 text-center text-gray-400">Click "Load Events" to fetch data</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </main>
@@ -730,7 +972,10 @@
                 transactions: 'Transactions',
                 capsules: 'Smart Contracts',
                 anchors: 'Anchors & Proofs',
-                wallet: 'Wallet'
+                wallet: 'Wallet',
+                commitments: 'Commitments',
+                proofs: 'Proof Verification',
+                events: 'Compliance Events'
             };
             document.getElementById('pageTitle').textContent = titles[tabName] || 'FlowCortex';
 
@@ -1058,6 +1303,180 @@
             const id = document.getElementById('get-anchor-id').value;
             const data = await apiCall(`/anchor/${encodeURIComponent(id)}`);
             displayOutput('anchor-query-output', data);
+        }
+
+        // ===== Commitments Tab =====
+        async function anchorCommitment() {
+            const commitHash = document.getElementById('commit-hash').value.trim();
+            const policyId = document.getElementById('commit-policy').value.trim();
+            const txnRef = document.getElementById('commit-txnref').value.trim();
+            const tsInput = document.getElementById('commit-timestamp').value;
+            const contextRef = document.getElementById('commit-context').value.trim();
+
+            if (!commitHash || !policyId || !txnRef) {
+                displayOutput('commit-anchor-output', { error: 'Commitment hash, policy ID, and transaction reference are required.' });
+                return;
+            }
+
+            const timestamp = tsInput ? new Date(tsInput).toISOString() : new Date().toISOString();
+
+            const body = {
+                commitment_hash: commitHash,
+                policy_id: policyId,
+                txn_ref: txnRef,
+                timestamp: timestamp
+            };
+            if (contextRef) body.context_ref = contextRef;
+
+            const data = await apiCall('/api/v1/commitments/anchor', {
+                method: 'POST',
+                body: JSON.stringify(body)
+            });
+            displayOutput('commit-anchor-output', data);
+        }
+
+        async function queryCommitment() {
+            const hash = document.getElementById('query-commit-hash').value.trim();
+            if (!hash) {
+                displayOutput('commit-query-output', { error: 'Enter a commitment hash to query.' });
+                return;
+            }
+            const data = await apiCall(`/api/v1/commitments/${encodeURIComponent(hash)}`);
+            displayOutput('commit-query-output', data);
+        }
+
+        async function loadCommitmentStats() {
+            const data = await apiCall('/api/v1/dashboard/stats');
+            if (data && !data.error) {
+                document.getElementById('stat-total-commitments').textContent = data.total_commitments ?? '-';
+                document.getElementById('stat-verified-proofs').textContent = data.verified_proofs ?? '-';
+                document.getElementById('stat-pending-proofs').textContent = data.pending_proofs ?? '-';
+                document.getElementById('stat-total-events').textContent = data.total_events ?? '-';
+                document.getElementById('commit-stats-output').classList.remove('hidden');
+            } else {
+                displayOutput('commit-anchor-output', data);
+            }
+        }
+
+        // ===== Proofs Tab =====
+        async function verifyProof() {
+            const commitHash = document.getElementById('proof-commit-hash').value.trim();
+            const proofHash = document.getElementById('proof-hash').value.trim();
+            const proofData = document.getElementById('proof-data').value.trim();
+            const proofType = document.getElementById('proof-type').value;
+            const capsuleVer = document.getElementById('proof-capsule-ver').value.trim() || undefined;
+
+            if (!commitHash || !proofHash || !proofData) {
+                displayOutput('proof-verify-output', { error: 'Commitment hash, proof hash, and proof data are required.' });
+                return;
+            }
+
+            const body = {
+                commitment_hash: commitHash,
+                proof_hash: proofHash,
+                proof_data: proofData,
+                proof_type: proofType
+            };
+            if (capsuleVer) body.capsule_version = capsuleVer;
+
+            const data = await apiCall('/api/v1/proofs/verify', {
+                method: 'POST',
+                body: JSON.stringify(body)
+            });
+            displayOutput('proof-verify-output', data);
+        }
+
+        async function queryProofStatus() {
+            const hash = document.getElementById('proof-status-hash').value.trim();
+            if (!hash) {
+                displayOutput('proof-status-output', { error: 'Enter a commitment hash to check proof status.' });
+                return;
+            }
+            const data = await apiCall(`/api/v1/proofs/${encodeURIComponent(hash)}/status`);
+
+            // Rich display
+            const el = document.getElementById('proof-status-output');
+            if (data && !data.error && data.commitment_hash) {
+                const verified = data.verified;
+                const badge = verified
+                    ? '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"><i class="fas fa-check mr-1"></i>Verified</span>'
+                    : '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"><i class="fas fa-hourglass mr-1"></i>Pending</span>';
+                el.innerHTML = `<div class="space-y-2">
+                    <div class="flex items-center gap-2">Status: ${badge}</div>
+                    <div class="text-xs"><strong>Commitment:</strong> <code>${data.commitment_hash}</code></div>
+                    ${data.proof ? `<div class="text-xs"><strong>Proof Hash:</strong> <code>${data.proof.proof_hash}</code></div>
+                    <div class="text-xs"><strong>Block:</strong> ${data.proof.verification_block ?? '-'}</div>
+                    <div class="text-xs"><strong>Verified At:</strong> ${data.proof.verified_at ?? '-'}</div>
+                    <div class="text-xs"><strong>Capsule:</strong> ${data.proof.verifier_capsule_version ?? '-'}</div>` : ''}
+                </div>`;
+                el.classList.remove('hidden');
+            } else {
+                el.textContent = JSON.stringify(data, null, 2);
+                el.classList.remove('hidden');
+            }
+        }
+
+        // ===== Events Tab =====
+        async function loadEvents() {
+            const filterHash = document.getElementById('events-filter-hash').value.trim();
+            const limit = document.getElementById('events-limit').value;
+
+            let endpoint = `/api/v1/events?limit=${limit}`;
+            if (filterHash) endpoint += `&commitment_hash=${encodeURIComponent(filterHash)}`;
+
+            const data = await apiCall(endpoint);
+
+            const tbody = document.getElementById('events-tbody');
+            const summary = document.getElementById('events-summary');
+
+            if (data && !data.error && Array.isArray(data.events)) {
+                // Build summary counters
+                const counts = {};
+                data.events.forEach(e => {
+                    counts[e.event_type] = (counts[e.event_type] || 0) + 1;
+                });
+
+                const typeColors = {
+                    'commitment.anchored': 'blue',
+                    'proof.verified': 'green',
+                    'proof.failed': 'red',
+                    'commitment.missing': 'orange',
+                    'proof.invalid': 'red',
+                    'proof.duplicate': 'yellow'
+                };
+
+                summary.innerHTML = Object.entries(counts).map(([type, count]) => {
+                    const color = typeColors[type] || 'gray';
+                    return `<div class="p-3 bg-${color}-50 dark:bg-${color}-900/20 rounded-lg text-center">
+                        <p class="text-xl font-bold text-${color}-600">${count}</p>
+                        <p class="text-xs text-gray-500">${type}</p>
+                    </div>`;
+                }).join('');
+                summary.classList.remove('hidden');
+
+                // Build table rows
+                if (data.events.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-gray-400">No events found</td></tr>';
+                } else {
+                    tbody.innerHTML = data.events.map(ev => {
+                        const color = typeColors[ev.event_type] || 'gray';
+                        const verifiedIcon = ev.verified === true ? '✅' : ev.verified === false ? '❌' : '—';
+                        const ts = ev.timestamp ? new Date(ev.timestamp).toLocaleString() : '-';
+                        const hashShort = (ev.commitment_hash || '-').substring(0, 16) + '…';
+                        return `<tr class="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                            <td class="py-2 px-2"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-${color}-100 dark:bg-${color}-900/30 text-${color}-700 dark:text-${color}-300">${ev.event_type}</span></td>
+                            <td class="py-2 px-2 font-mono text-xs" title="${ev.commitment_hash || ''}">${hashShort}</td>
+                            <td class="py-2 px-2">${ev.block_height ?? '-'}</td>
+                            <td class="py-2 px-2 text-center">${verifiedIcon}</td>
+                            <td class="py-2 px-2 text-xs text-gray-500">${ts}</td>
+                        </tr>`;
+                    }).join('');
+                }
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-red-400">Error loading events</td></tr>';
+                summary.classList.add('hidden');
+                displayOutput('events-tbody', data);
+            }
         }
 
         // ===== Wallet Tab =====
