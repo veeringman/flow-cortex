@@ -4,6 +4,14 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
+// Winterfell STARK verification
+use winterfell::crypto::{hashers::Blake3_256, DefaultRandomCoin};
+use winterfell::math::{fields::f64::BaseElement, FieldElement, ToElements};
+use winterfell::{
+    AcceptableOptions, Air, AirContext, Assertion, EvaluationFrame, ProofOptions, TraceInfo,
+    TransitionConstraintDegree,
+};
+
 /// Verifier Capsule trait for pluggable proof verification
 /// Subtask 3.4: Capsule executor interface
 pub trait VerifierCapsule: Send + Sync {
@@ -61,6 +69,168 @@ impl VerifierCapsule for MockStarkVerifier {
     
     fn name(&self) -> &str {
         "MockStarkVerifier"
+    }
+}
+
+// ============================================================================
+// Real Winterfell STARK Verifier — PolicyAir (must match ProofCortex's definition)
+// ============================================================================
+
+/// Public inputs for the policy AIR.
+/// - `initial_acc`: the accumulator value at step 0 (= first check's composite value)
+/// - `final_acc`:   the accumulator value at the last step (sum of all values)
+/// - `cumulative_output`: product of all output flags (1 iff every check passed)
+#[derive(Debug, Clone)]
+struct PolicyPublicInputs {
+    initial_acc: u64,
+    final_acc: u64,
+    cumulative_output: u64,
+}
+
+struct PolicyAir {
+    context: AirContext<BaseElement>,
+    initial_acc: u64,
+    final_acc: u64,
+}
+
+impl Air for PolicyAir {
+    type BaseField = BaseElement;
+    type PublicInputs = PolicyPublicInputs;
+
+    fn new(trace_info: TraceInfo, pub_inputs: PolicyPublicInputs, options: ProofOptions) -> Self {
+        // 2 columns: [value, acc]
+        // Transition constraint (degree 1):
+        //   next_acc - current_acc - next_value = 0
+        let degrees = vec![TransitionConstraintDegree::new(1)];
+        Self {
+            context: AirContext::new(trace_info, degrees, 2, options),
+            initial_acc: pub_inputs.initial_acc,
+            final_acc: pub_inputs.final_acc,
+        }
+    }
+
+    fn context(&self) -> &AirContext<Self::BaseField> {
+        &self.context
+    }
+
+    fn evaluate_transition<E: FieldElement + From<Self::BaseField>>(
+        &self,
+        frame: &EvaluationFrame<E>,
+        _periodic_values: &[E],
+        result: &mut [E],
+    ) {
+        let current = frame.current();
+        let next = frame.next();
+        // acc[i+1] = acc[i] + value[i+1]
+        result[0] = next[1] - current[1] - next[0];
+    }
+
+    fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
+        let last_step = self.trace_length() - 1;
+        vec![
+            Assertion::single(1, 0, BaseElement::new(self.initial_acc)),
+            Assertion::single(1, last_step, BaseElement::new(self.final_acc)),
+        ]
+    }
+}
+
+impl ToElements<BaseElement> for PolicyPublicInputs {
+    fn to_elements(&self) -> Vec<BaseElement> {
+        vec![
+            BaseElement::new(self.initial_acc),
+            BaseElement::new(self.final_acc),
+            BaseElement::new(self.cumulative_output),
+        ]
+    }
+}
+
+/// Real STARK proof verifier using Winterfell.
+/// Deserializes proof bytes, parses public inputs JSON, and runs
+/// `winterfell::verify()` against the PolicyAir.
+pub struct WinterfellStarkVerifier {
+    version: String,
+}
+
+impl WinterfellStarkVerifier {
+    pub fn new() -> Self {
+        WinterfellStarkVerifier {
+            version: "winterfell_v1".to_string(),
+        }
+    }
+}
+
+impl Default for WinterfellStarkVerifier {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl VerifierCapsule for WinterfellStarkVerifier {
+    fn execute(
+        &self,
+        proof_data: &[u8],
+        public_inputs: Option<&str>,
+        _commitment_hash: &str,
+    ) -> Result<bool, String> {
+        if proof_data.is_empty() {
+            return Err("Proof data cannot be empty".to_string());
+        }
+
+        let public_inputs_json = public_inputs
+            .ok_or_else(|| "public_inputs JSON required for STARK verification".to_string())?;
+
+        // Parse public inputs: {"initial_acc":N,"final_acc":N,"cumulative_output":N}
+        let parsed: serde_json::Value = serde_json::from_str(public_inputs_json)
+            .map_err(|e| format!("failed to parse public_inputs JSON: {e}"))?;
+
+        let initial_acc = parsed["initial_acc"]
+            .as_u64()
+            .ok_or("missing or invalid initial_acc in public_inputs")?;
+        let final_acc = parsed["final_acc"]
+            .as_u64()
+            .ok_or("missing or invalid final_acc in public_inputs")?;
+        let cumulative_output = parsed["cumulative_output"]
+            .as_u64()
+            .ok_or("missing or invalid cumulative_output in public_inputs")?;
+
+        let pub_inputs = PolicyPublicInputs {
+            initial_acc,
+            final_acc,
+            cumulative_output,
+        };
+
+        // Deserialize the STARK proof
+        let proof = winterfell::StarkProof::from_bytes(proof_data)
+            .map_err(|e| format!("failed to deserialize STARK proof: {e}"))?;
+
+        // Must match the prover's ProofOptions exactly
+        let acceptable = AcceptableOptions::OptionSet(vec![ProofOptions::new(
+            32, 8, 0,
+            winterfell::FieldExtension::None,
+            8, 31,
+        )]);
+
+        // Run Winterfell verification
+        match winterfell::verify::<
+            PolicyAir,
+            Blake3_256<BaseElement>,
+            DefaultRandomCoin<Blake3_256<BaseElement>>,
+        >(proof, pub_inputs, &acceptable)
+        {
+            Ok(()) => Ok(true),
+            Err(e) => {
+                eprintln!("STARK verification failed: {e}");
+                Ok(false)
+            }
+        }
+    }
+
+    fn version(&self) -> &str {
+        &self.version
+    }
+
+    fn name(&self) -> &str {
+        "WinterfellStarkVerifier"
     }
 }
 
@@ -945,17 +1115,25 @@ impl Ledger {
     // ============== PHASE 3: VERIFIER CAPSULE RUNTIME ============
 
     /// Subtask 3.6-3.7: Execute proof verification via capsule
-    /// This method encapsulates proof execution and verification logic
+    /// This method encapsulates proof execution and verification logic.
+    /// Routes to the real Winterfell STARK verifier for "winterfell*" capsule
+    /// versions, or falls back to the legacy mock verifier for backward
+    /// compatibility with tests and older integrations.
     pub fn verify_proof_with_capsule(
         &self,
         proof_data: &[u8],
         public_inputs: Option<&str>,
         commitment_hash: &str,
+        capsule_version: &str,
     ) -> Result<bool, String> {
-        // Subtask 3.5: Ensure deterministic execution
-        // No random seeds, no system time, pure function
-        let capsule = MockStarkVerifier::new();
-        capsule.execute(proof_data, public_inputs, commitment_hash)
+        if capsule_version.starts_with("winterfell") {
+            let capsule = WinterfellStarkVerifier::new();
+            capsule.execute(proof_data, public_inputs, commitment_hash)
+        } else {
+            // Legacy mock capsule for backward-compatible tests
+            let capsule = MockStarkVerifier::new();
+            capsule.execute(proof_data, public_inputs, commitment_hash)
+        }
     }
 
     // ============== PHASE 4: PROOF VERIFICATION & BINDING LOGIC ============
@@ -1024,11 +1202,12 @@ impl Ledger {
             return Err("INVALID_PROOF_HASH: Must be 64 hex characters".to_string());
         }
 
-        // Subtask 4.4: Execute proof via Verifier Capsule (using mock for now)
+        // Subtask 4.4: Execute proof via Verifier Capsule
         let verification_result = match self.verify_proof_with_capsule(
             &proof_data,
             public_inputs.as_deref(),
             &commitment_hash,
+            &capsule_version,
         ) {
             Ok(result) => result,
             Err(e) => {

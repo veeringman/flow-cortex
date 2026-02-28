@@ -18,6 +18,9 @@ hex = "0.4"
 wasmtime = "13"
 base64 = "0.21"
 
+# STARK proof verification (Winterfell)
+winterfell = "0.8"
+
 # cryptography for wallet authentication
 ed25519-dalek = "1"
 

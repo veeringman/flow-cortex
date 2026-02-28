@@ -747,7 +747,7 @@ impl ProofVerifier for ProofVerifierService {
         } else {
             Some(req.public_inputs_json)
         };
-        let capsule_version = "grpc_verifier_v1".to_string();
+        let capsule_version = "winterfell_v1".to_string();
 
         match n.ledger.verify_proof(
             req.commitment_hash.clone(),

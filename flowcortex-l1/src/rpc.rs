@@ -150,6 +150,8 @@ struct VerifyProofRequest {
     proof_data: String,  // Base64 encoded
     proof_type: String,
     #[serde(default)]
+    public_inputs: Option<String>,
+    #[serde(default)]
     capsule_version: Option<String>,
 }
 
@@ -601,13 +603,13 @@ async fn verify_proof(
         }
     };
     
-    let capsule_version = req.capsule_version.clone().unwrap_or_else(|| "verifier_v1".to_string());
+    let capsule_version = req.capsule_version.clone().unwrap_or_else(|| "winterfell_v1".to_string());
     match n.ledger.verify_proof(
         req.commitment_hash.clone(),
         req.proof_hash.clone(),
         proof_data,
         req.proof_type.clone(),
-        None,
+        req.public_inputs.clone(),
         capsule_version,
     ) {
         Ok(record) => {
