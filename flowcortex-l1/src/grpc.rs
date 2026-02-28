@@ -13,17 +13,23 @@ use proto::l1_server::{L1, L1Server};
 use proto::tokens_server::{Tokens, TokensServer};
 use proto::settlement_server::{Settlement, SettlementServer};
 use proto::admin_server::{Admin, AdminServer};
+use proto::commitment_anchor_server::{CommitmentAnchor, CommitmentAnchorServer};
+use proto::proof_verifier_server::{ProofVerifier, ProofVerifierServer};
 use proto::*;
 
 mod tokens;
 mod settlement;
 mod admin;
 mod demo;
+mod commitment;
+mod proof;
 
 use tokens::TokensService;
 use settlement::SettlementService;
 use admin::AdminService;
 use demo::DemoService;
+use commitment::CommitmentAnchorService;
+use proof::ProofVerifierService;
 
 #[derive(Clone)]
 pub struct L1Service {
@@ -653,18 +659,189 @@ impl Admin for AdminService {
     }
 }
 
+/// ===== CommitmentAnchor gRPC service =====
+#[tonic::async_trait]
+impl CommitmentAnchor for CommitmentAnchorService {
+    async fn anchor_commitment(
+        &self,
+        req: Request<AnchorCommitmentRequest>,
+    ) -> Result<Response<AnchorCommitmentResponse>, Status> {
+        let req = req.into_inner();
+        let mut n = self.node.lock().unwrap();
+
+        match n.ledger.anchor_commitment(
+            req.commitment_hash.clone(),
+            req.policy_id,
+            req.txn_ref,
+            req.timestamp,
+            if req.context_ref.is_empty() { None } else { Some(req.context_ref) },
+        ) {
+            Ok((block_height, tx_hash)) => Ok(Response::new(AnchorCommitmentResponse {
+                success: true,
+                commitment_hash: req.commitment_hash,
+                block_height,
+                tx_hash,
+                anchored_at: req.timestamp,
+                error_code: String::new(),
+                error_message: String::new(),
+            })),
+            Err(e) => Ok(Response::new(AnchorCommitmentResponse {
+                success: false,
+                commitment_hash: req.commitment_hash,
+                block_height: 0,
+                tx_hash: String::new(),
+                anchored_at: 0,
+                error_code: "ANCHOR_FAILED".to_string(),
+                error_message: format!("{:?}", e),
+            })),
+        }
+    }
+
+    async fn get_commitment(
+        &self,
+        req: Request<GetCommitmentRequest>,
+    ) -> Result<Response<GetCommitmentResponse>, Status> {
+        let hash = req.into_inner().commitment_hash;
+        let n = self.node.lock().unwrap();
+
+        match n.ledger.query_commitment(&hash) {
+            Some(record) => Ok(Response::new(GetCommitmentResponse {
+                success: true,
+                commitment_hash: record.commitment_hash,
+                policy_id: record.policy_id,
+                txn_ref: record.txn_ref,
+                timestamp: record.timestamp,
+                block_height: record.block_height,
+                verified: record.verified,
+                context_ref: record.context_ref.unwrap_or_default(),
+                error: String::new(),
+            })),
+            None => Ok(Response::new(GetCommitmentResponse {
+                success: false,
+                commitment_hash: hash,
+                policy_id: String::new(),
+                txn_ref: String::new(),
+                timestamp: 0,
+                block_height: 0,
+                verified: false,
+                context_ref: String::new(),
+                error: "Commitment not found".to_string(),
+            })),
+        }
+    }
+}
+
+/// ===== ProofVerifier gRPC service =====
+#[tonic::async_trait]
+impl ProofVerifier for ProofVerifierService {
+    async fn verify_proof(
+        &self,
+        req: Request<VerifyProofRequest>,
+    ) -> Result<Response<VerifyProofResponse>, Status> {
+        let req = req.into_inner();
+        let mut n = self.node.lock().unwrap();
+
+        let proof_data = req.proof_data; // already bytes in proto
+        let public_inputs = if req.public_inputs_json.is_empty() {
+            None
+        } else {
+            Some(req.public_inputs_json)
+        };
+        let capsule_version = "grpc_verifier_v1".to_string();
+
+        match n.ledger.verify_proof(
+            req.commitment_hash.clone(),
+            req.proof_hash.clone(),
+            proof_data,
+            req.proof_type,
+            public_inputs,
+            capsule_version.clone(),
+        ) {
+            Ok(record) => {
+                let verified = matches!(
+                    record.verification_status,
+                    crate::types::ProofVerificationStatus::Verified
+                );
+                Ok(Response::new(VerifyProofResponse {
+                    success: true,
+                    commitment_hash: record.commitment_hash,
+                    proof_hash: record.proof_hash,
+                    verified,
+                    block_height: record.verification_block.unwrap_or(0),
+                    verifier_capsule_version: capsule_version,
+                    error_code: String::new(),
+                    error_message: String::new(),
+                }))
+            }
+            Err(e) => Ok(Response::new(VerifyProofResponse {
+                success: false,
+                commitment_hash: req.commitment_hash,
+                proof_hash: req.proof_hash,
+                verified: false,
+                block_height: 0,
+                verifier_capsule_version: capsule_version,
+                error_code: "VERIFY_FAILED".to_string(),
+                error_message: format!("{:?}", e),
+            })),
+        }
+    }
+
+    async fn get_proof(
+        &self,
+        req: Request<GetProofRequest>,
+    ) -> Result<Response<GetProofResponse>, Status> {
+        let proof_hash = req.into_inner().proof_hash;
+        let n = self.node.lock().unwrap();
+
+        // Search through all proofs to find by proof_hash
+        // The ledger stores proofs keyed by proof_hash
+        if let Some(proof_record) = n.ledger.proofs.get(&proof_hash) {
+            let status = match proof_record.verification_status {
+                crate::types::ProofVerificationStatus::Verified => "VERIFIED",
+                crate::types::ProofVerificationStatus::Failed => "FAILED",
+                crate::types::ProofVerificationStatus::Pending => "PENDING",
+            };
+            return Ok(Response::new(GetProofResponse {
+                success: true,
+                proof_hash: proof_record.proof_hash.clone(),
+                commitment_hash: proof_record.commitment_hash.clone(),
+                verification_status: status.to_string(),
+                submitted_at: proof_record.submitted_at,
+                verification_block: proof_record.verification_block.unwrap_or(0),
+                error_message: proof_record.error_message.clone().unwrap_or_default(),
+                error: String::new(),
+            }));
+        }
+
+        Ok(Response::new(GetProofResponse {
+            success: false,
+            proof_hash,
+            commitment_hash: String::new(),
+            verification_status: String::new(),
+            submitted_at: 0,
+            verification_block: 0,
+            error_message: String::new(),
+            error: "Proof not found".to_string(),
+        }))
+    }
+}
+
 /// start the gRPC server on given address
 pub async fn serve_grpc(node: SharedNode, addr: std::net::SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
     let l1_svc = L1Service { node: node.clone() };
     let tokens_svc = TokensService { node: node.clone() };
     let settlement_svc = SettlementService { node: node.clone() };
     let admin_svc = AdminService { node: node.clone() };
+    let commitment_svc = CommitmentAnchorService { node: node.clone() };
+    let proof_svc = ProofVerifierService { node: node.clone() };
 
     tonic::transport::Server::builder()
         .add_service(L1Server::new(l1_svc))
         .add_service(TokensServer::new(tokens_svc))
         .add_service(SettlementServer::new(settlement_svc))
         .add_service(AdminServer::new(admin_svc))
+        .add_service(CommitmentAnchorServer::new(commitment_svc))
+        .add_service(ProofVerifierServer::new(proof_svc))
         .serve(addr)
         .await?;
     Ok(())

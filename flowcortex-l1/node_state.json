@@ -1,30 +1,19 @@
 {
   "ledger": {
     "balances": {
-      "test1": {
-        "proof": 75
+      "test2": {
+        "proof": 25
       },
       "alice": {
         "proof": 1
       },
       "admin": {},
-      "test2": {
-        "proof": 25
+      "test1": {
+        "proof": 75
       }
     },
     "admin": "admin",
     "tokens": {
-      "flower": {
-        "symbol": "flower",
-        "name": "Flow Dollar",
-        "decimals": 6,
-        "total_supply": 0,
-        "creator": "admin",
-        "token_type": "stablecoin",
-        "status": "active",
-        "created_at": 0,
-        "metadata": null
-      },
       "proof": {
         "symbol": "proof",
         "name": "Proof Token",
@@ -32,6 +21,17 @@
         "total_supply": 0,
         "creator": "admin",
         "token_type": "native",
+        "status": "active",
+        "created_at": 0,
+        "metadata": null
+      },
+      "flower": {
+        "symbol": "flower",
+        "name": "Flow Dollar",
+        "decimals": 6,
+        "total_supply": 0,
+        "creator": "admin",
+        "token_type": "stablecoin",
         "status": "active",
         "created_at": 0,
         "metadata": null
@@ -49,38 +49,38 @@
   },
   "admin": "admin",
   "snapshot_root": [
-    123,
-    138,
-    43,
-    206,
-    37,
-    20,
-    68,
-    47,
-    211,
-    38,
-    151,
-    198,
-    244,
-    201,
-    42,
-    51,
+    10,
+    120,
+    29,
     64,
-    77,
-    204,
-    114,
-    180,
-    112,
-    48,
+    193,
+    240,
+    141,
     160,
-    155,
-    108,
-    208,
-    77,
-    21,
-    191,
+    33,
+    89,
+    152,
+    120,
+    27,
     46,
-    223
+    65,
+    186,
+    190,
+    81,
+    4,
+    30,
+    16,
+    7,
+    158,
+    50,
+    246,
+    240,
+    249,
+    152,
+    17,
+    93,
+    245,
+    165
   ],
   "history": [
     {
@@ -193,7 +193,56 @@
       ]
     }
   ],
-  "pool": [],
+  "pool": [
+    {
+      "kind": {
+        "Transfer": {
+          "from": "test1",
+          "to": "test2",
+          "token": "proof",
+          "amount": 25
+        }
+      },
+      "rw_set": {
+        "reads": [],
+        "writes": []
+      },
+      "proof": [
+        227,
+        176,
+        196,
+        66,
+        152,
+        252,
+        28,
+        20,
+        154,
+        251,
+        244,
+        200,
+        153,
+        111,
+        185,
+        36,
+        39,
+        174,
+        65,
+        228,
+        100,
+        155,
+        147,
+        76,
+        164,
+        149,
+        153,
+        27,
+        120,
+        82,
+        184,
+        85
+      ]
+    }
+  ],
   "blocks": [
     {
       "height": 1,
@@ -211,59 +260,6 @@
             "writes": []
           },
           "proof": null
-        }
-      ]
-    },
-    {
-      "height": 2,
-      "transactions": [
-        {
-          "kind": {
-            "Transfer": {
-              "from": "test1",
-              "to": "test2",
-              "token": "proof",
-              "amount": 25
-            }
-          },
-          "rw_set": {
-            "reads": [],
-            "writes": []
-          },
-          "proof": [
-            227,
-            176,
-            196,
-            66,
-            152,
-            252,
-            28,
-            20,
-            154,
-            251,
-            244,
-            200,
-            153,
-            111,
-            185,
-            36,
-            39,
-            174,
-            65,
-            228,
-            100,
-            155,
-            147,
-            76,
-            164,
-            149,
-            153,
-            27,
-            120,
-            82,
-            184,
-            85
-          ]
         }
       ]
     }

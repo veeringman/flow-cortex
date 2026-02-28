@@ -1,2 +1,1 @@
 {"height":1,"transactions":[{"kind":{"Mint":{"to":"alice","token":"proof","amount":100}},"rw_set":{"reads":["admin"],"writes":["alice"]},"proof":null},{"kind":{"Transfer":{"from":"alice","to":"bob","token":"proof","amount":30}},"rw_set":{"reads":["alice"],"writes":["bob"]},"proof":null}]}
-{"height":2,"transactions":[{"kind":{"Transfer":{"from":"test1","to":"test2","token":"proof","amount":25}},"rw_set":{"reads":[],"writes":[]},"proof":[227,176,196,66,152,252,28,20,154,251,244,200,153,111,185,36,39,174,65,228,100,155,147,76,164,149,153,27,120,82,184,85]}]}
