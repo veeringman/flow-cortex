@@ -1,12 +1,12 @@
 {
   "ledger": {
     "balances": {
-      "test2": {
-        "proof": 25
-      },
       "admin": {},
       "alice": {
         "proof": 1
+      },
+      "test2": {
+        "proof": 25
       },
       "test1": {
         "proof": 75
@@ -14,17 +14,6 @@
     },
     "admin": "admin",
     "tokens": {
-      "flower": {
-        "symbol": "flower",
-        "name": "Flow Dollar",
-        "decimals": 6,
-        "total_supply": 0,
-        "creator": "admin",
-        "token_type": "stablecoin",
-        "status": "active",
-        "created_at": 0,
-        "metadata": null
-      },
       "proof": {
         "symbol": "proof",
         "name": "Proof Token",
@@ -32,6 +21,17 @@
         "total_supply": 0,
         "creator": "admin",
         "token_type": "native",
+        "status": "active",
+        "created_at": 0,
+        "metadata": null
+      },
+      "flower": {
+        "symbol": "flower",
+        "name": "Flow Dollar",
+        "decimals": 6,
+        "total_supply": 0,
+        "creator": "admin",
+        "token_type": "stablecoin",
         "status": "active",
         "created_at": 0,
         "metadata": null
@@ -49,38 +49,38 @@
   },
   "admin": "admin",
   "snapshot_root": [
+    5,
+    75,
     222,
-    16,
-    3,
-    235,
-    60,
-    0,
-    165,
-    117,
-    64,
-    140,
-    82,
-    87,
-    202,
-    251,
-    18,
-    119,
-    100,
-    234,
-    138,
-    53,
-    178,
-    115,
+    180,
+    148,
+    188,
+    147,
+    250,
+    26,
+    147,
+    181,
+    222,
     4,
-    72,
-    202,
-    77,
-    203,
-    231,
-    213,
-    162,
-    119,
-    165
+    67,
+    112,
+    160,
+    211,
+    174,
+    136,
+    233,
+    138,
+    227,
+    23,
+    216,
+    104,
+    233,
+    183,
+    205,
+    127,
+    81,
+    81,
+    60
   ],
   "history": [
     {

@@ -509,6 +509,12 @@ impl Ledger {
             .unwrap_or(0)
     }
 
+    /// Return a snapshot of all balances (account → token → amount).
+    /// Used by WASM capsule runtime to provide a read-only view to the guest.
+    pub fn balance_snapshot(&self) -> HashMap<String, HashMap<String, u64>> {
+        self.balances.clone()
+    }
+
     /// Mint tokens to an account. Only `self.admin` may perform this action.
     pub fn mint(
         &mut self,

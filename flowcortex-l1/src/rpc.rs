@@ -118,6 +118,75 @@ struct CapsuleInvokeResponse {
     output: String,
 }
 
+// Settlement request/response types
+
+#[derive(Deserialize)]
+struct SettlementMintRequest {
+    caller: AccountId,
+    token: Token,
+    amount: u64,
+    reference: String,
+    #[serde(default)]
+    metadata: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct SettlementBurnRequest {
+    caller: AccountId,
+    token: Token,
+    amount: u64,
+    reference: String,
+    #[serde(default)]
+    metadata: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct SettlementTransferRequest {
+    from: AccountId,
+    to: AccountId,
+    token: Token,
+    amount: u64,
+    reference: String,
+    #[serde(default)]
+    metadata: Option<String>,
+}
+
+#[derive(Serialize)]
+struct SettlementResponse {
+    success: bool,
+    reference: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+// WASM capsule invoke response (richer than legacy stub)
+
+#[derive(Serialize)]
+struct WasmCapsuleInvokeResponse {
+    return_code: i32,
+    output: String,
+    logs: Vec<String>,
+    ops_applied: usize,
+}
+
+// Bank administration types
+
+#[derive(Deserialize)]
+struct ApproveBankRequest {
+    caller: AccountId,
+    account_id: AccountId,
+    bank_name: String,
+    swift_code: String,
+}
+
+#[derive(Deserialize)]
+struct SetDailyLimitRequest {
+    caller: AccountId,
+    bank_account: AccountId,
+    token: Token,
+    daily_limit: u64,
+}
+
 // ============================================================================
 // Commitment & Proof API Request/Response Types
 // ============================================================================
@@ -797,6 +866,197 @@ async fn dashboard_stats(
     })
 }
 
+// ============================================================================
+// Settlement Handlers
+// ============================================================================
+
+async fn settlement_mint(
+    Extension(node): Extension<SharedNode>,
+    Json(req): Json<SettlementMintRequest>,
+) -> impl IntoResponse {
+    let mut n = node.lock().unwrap();
+    match n.ledger.settlement_mint(&req.caller, &req.token, req.amount, req.reference.clone()) {
+        Ok(()) => {
+            let _ = n.save("node_state.json");
+            (
+                StatusCode::CREATED,
+                Json(SettlementResponse {
+                    success: true,
+                    reference: req.reference,
+                    error: None,
+                }),
+            )
+                .into_response()
+        }
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(SettlementResponse {
+                success: false,
+                reference: req.reference,
+                error: Some(e.to_string()),
+            }),
+        )
+            .into_response(),
+    }
+}
+
+async fn settlement_redeem(
+    Extension(node): Extension<SharedNode>,
+    Json(req): Json<SettlementBurnRequest>,
+) -> impl IntoResponse {
+    let mut n = node.lock().unwrap();
+    match n.ledger.settlement_burn(&req.caller, &req.token, req.amount, req.reference.clone()) {
+        Ok(()) => {
+            let _ = n.save("node_state.json");
+            (
+                StatusCode::OK,
+                Json(SettlementResponse {
+                    success: true,
+                    reference: req.reference,
+                    error: None,
+                }),
+            )
+                .into_response()
+        }
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(SettlementResponse {
+                success: false,
+                reference: req.reference,
+                error: Some(e.to_string()),
+            }),
+        )
+            .into_response(),
+    }
+}
+
+async fn settlement_transfer(
+    Extension(node): Extension<SharedNode>,
+    Json(req): Json<SettlementTransferRequest>,
+) -> impl IntoResponse {
+    let mut n = node.lock().unwrap();
+    match n.ledger.settlement_transfer(&req.from, &req.to, &req.token, req.amount, req.reference.clone()) {
+        Ok(()) => {
+            let _ = n.save("node_state.json");
+            (
+                StatusCode::OK,
+                Json(SettlementResponse {
+                    success: true,
+                    reference: req.reference,
+                    error: None,
+                }),
+            )
+                .into_response()
+        }
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(SettlementResponse {
+                success: false,
+                reference: req.reference,
+                error: Some(e.to_string()),
+            }),
+        )
+            .into_response(),
+    }
+}
+
+// ============================================================================
+// WASM Capsule Invoke Handler (alternative to legacy stub)
+// ============================================================================
+
+async fn invoke_capsule_wasm(
+    Path(id): Path<String>,
+    Extension(node): Extension<SharedNode>,
+    Json(req): Json<CapsuleInvokeRequest>,
+) -> impl IntoResponse {
+    use base64::engine::general_purpose::STANDARD;
+    let input = match STANDARD.decode(&req.input) {
+        Ok(i) => i,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse { error: e.to_string() }),
+            )
+                .into_response();
+        }
+    };
+    let mut n = node.lock().unwrap();
+    match n.execute_capsule_wasm(&id, &input) {
+        Ok(result) => {
+            let _ = n.save("node_state.json");
+            let encoded = STANDARD.encode(&result.output);
+            Json(WasmCapsuleInvokeResponse {
+                return_code: result.return_code,
+                output: encoded,
+                logs: result.logs,
+                ops_applied: result.ops.len(),
+            })
+            .into_response()
+        }
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse { error: e }),
+        )
+            .into_response(),
+    }
+}
+
+// ============================================================================
+// Bank Administration Handlers
+// ============================================================================
+
+async fn approve_bank(
+    Extension(node): Extension<SharedNode>,
+    Json(req): Json<ApproveBankRequest>,
+) -> impl IntoResponse {
+    let mut n = node.lock().unwrap();
+    match n.ledger.approve_bank(&req.caller, req.account_id.clone(), req.bank_name, req.swift_code) {
+        Ok(()) => {
+            let _ = n.save("node_state.json");
+            (
+                StatusCode::CREATED,
+                Json(serde_json::json!({
+                    "success": true,
+                    "account_id": req.account_id
+                })),
+            )
+                .into_response()
+        }
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse { error: e.to_string() }),
+        )
+            .into_response(),
+    }
+}
+
+async fn set_daily_limit(
+    Extension(node): Extension<SharedNode>,
+    Json(req): Json<SetDailyLimitRequest>,
+) -> impl IntoResponse {
+    let mut n = node.lock().unwrap();
+    match n.ledger.set_daily_limit(&req.caller, &req.bank_account, &req.token, req.daily_limit) {
+        Ok(()) => {
+            let _ = n.save("node_state.json");
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "success": true,
+                    "bank_account": req.bank_account,
+                    "token": req.token,
+                    "daily_limit": req.daily_limit
+                })),
+            )
+                .into_response()
+        }
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse { error: e.to_string() }),
+        )
+            .into_response(),
+    }
+}
+
 /// Build the router for the RPC server.
 pub fn make_router(node: SharedNode) -> Router {
     // middleware to inject permissive CORS headers
@@ -842,6 +1102,15 @@ pub fn make_router(node: SharedNode) -> Router {
         .route("/capsule", post(upload_capsule))
         .route("/capsule", get(list_capsules))
         .route("/capsule/{id}/invoke", post(invoke_capsule))
+        // WASM capsule invoke (real wasmtime execution, alternative path)
+        .route("/capsule/{id}/invoke_wasm", post(invoke_capsule_wasm))
+        // settlement routes
+        .route("/settlement/mint", post(settlement_mint))
+        .route("/settlement/redeem", post(settlement_redeem))
+        .route("/settlement/transfer", post(settlement_transfer))
+        // bank administration
+        .route("/bank/approve", post(approve_bank))
+        .route("/bank/daily_limit", post(set_daily_limit))
         // commitment & proof APIs
         .route("/api/anchor_commitment", post(anchor_commitment))
         .route("/api/verify_proof", post(verify_proof))

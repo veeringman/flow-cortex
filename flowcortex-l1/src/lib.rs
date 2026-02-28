@@ -6,3 +6,4 @@ pub mod grpc;
 pub mod types;
 pub mod qct;
 pub mod demo;
+pub mod wasm_capsule;
