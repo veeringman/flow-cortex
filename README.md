@@ -1,4 +1,4 @@
-<img src="IMG_1250.png" width=150 />
+<img src="IMG_1250.jpeg" width=150 />
 # FlowCortex
 
 **FlowCortex** is a payment-centric, ordering-less blockchain designed for extreme throughput, stateless verification, and parallel execution.
