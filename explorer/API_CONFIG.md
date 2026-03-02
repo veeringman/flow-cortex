@@ -71,7 +71,7 @@ Success toast shown
 
 ### Example 1: Local Development (Docker)
 ```
-API Config dialog → Enter: http://localhost:3000
+API Config dialog → Enter: http://192.168.29.78:3000
 ```
 
 ### Example 2: Remote Server

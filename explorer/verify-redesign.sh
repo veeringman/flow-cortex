@@ -81,7 +81,7 @@ echo ""
 echo "   To run:"
 echo "   $ cargo run"
 echo ""
-echo "   Access at: http://localhost:4000"
+echo "   Access at: http://192.168.29.78:4000"
 
 echo ""
 echo "═══════════════════════════════════════════════════════════════"

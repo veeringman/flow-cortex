@@ -1,467 +1,264 @@
-# FlowCortex Demo - Quick Start Guide
+# FlowCortex Demo — Quick Start Guide
 
-**Date:** February 23, 2026  
-**Phase:** 13 Complete - Demo Ready
+**Date:** March 2, 2026  
+**Status:** All 16 Phases Complete — Demo Ready ✅
 
 ---
 
 ## Quick Demo Commands
 
-### 1. Start the FlowCortex L1 Node
+### 1. Start All Services (Recommended)
 
 ```bash
-cd /workspaces/flow-cortex
-./scripts/start-l1-node.sh
+cd /home/vijay/demo/workspaces
+./deploy-local.sh start       # Start all 13 services
+./deploy-local.sh diagnose    # Verify 60/60 checks pass
 ```
 
-The node will start on `localhost:50051` (gRPC)
+### 2. Start FlowCortex Only
+
+```bash
+cd /home/vijay/demo/workspaces/flow-cortex
+./scripts/run_servers.sh      # Starts L1 node (:3000) + Explorer (:4000)
+```
+
+The L1 node runs on `http://192.168.29.78:3000` (REST + gRPC).  
+The Explorer UI runs on `http://192.168.29.78:4000` (web).
 
 ---
 
-## Demo API Usage Examples
+## Service Port Map
 
-### Create a Demo Settlement
+| Service | Port | URL |
+|---------|------|-----|
+| FlowCortex L1 | 3000 | `http://192.168.29.78:3000` |
+| AuthBuddy Admin | 3001 | `http://192.168.29.78:3001` |
+| FlowCortex Explorer | 3002/4000 | `http://192.168.29.78:3002` |
+| FortressDigital Console | 3003 | `http://192.168.29.78:3003` |
+| Treasury Frontend | 3004 | `http://192.168.29.78:3004` |
+| KeyCortex Wallet (JS) | 3005 | `http://192.168.29.78:3005` |
+| KeyCortex Wallet (WASM) | 3006 | `http://192.168.29.78:3006` |
+| AuthBuddy API | 8801 | `http://192.168.29.78:8801` |
+| KeyCortex API | 8811 | `http://192.168.29.78:8811` |
+| FortressDigital API | 8821 | `http://192.168.29.78:8821` |
+| Treasury API | 8831 | `http://192.168.29.78:8831` |
+| ProofCortex API | 8841 | `http://192.168.29.78:8841` |
 
-**Using curl:**
+---
+
+## FlowCortex L1 API Examples
+
+### Health Check
+
 ```bash
-curl -X POST http://localhost:50051/demo/settlements \
+curl http://192.168.29.78:3000/status
+```
+
+### Create a Token
+
+```bash
+curl -X POST http://192.168.29.78:3000/token/create \
   -H "Content-Type: application/json" \
   -d '{
-    "scenario_id": "demo_001",
-    "amount": 5000000000
+    "symbol": "FLW",
+    "name": "FloweR Stablecoin",
+    "decimals": 6,
+    "initial_supply": 0,
+    "token_type": "stablecoin",
+    "metadata": {"issuer": "treasury", "description": "INR-pegged stablecoin"}
   }'
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "scenario_id": "demo_001",
-  "config": {
+### Create Account & Mint Tokens
+
+```bash
+# Create account
+curl -X POST http://192.168.29.78:3000/account \
+  -H "Content-Type: application/json" \
+  -d '{"id": "bank_a"}'
+
+# Mint tokens
+curl -X POST http://192.168.29.78:3000/mint \
+  -H "Content-Type: application/json" \
+  -d '{"account": "bank_a", "token": "FLW", "amount": 50000000}'
+
+# Check balance
+curl http://192.168.29.78:3000/balance/bank_a/FLW
+```
+
+### Transfer Tokens
+
+```bash
+curl -X POST http://192.168.29.78:3000/transfer \
+  -H "Content-Type: application/json" \
+  -d '{"from": "bank_a", "to": "bank_b", "token": "FLW", "amount": 10000000}'
+```
+
+### Produce a Block
+
+```bash
+curl -X POST http://192.168.29.78:3000/block
+```
+
+### Anchor a Commitment (FortressDigital Integration)
+
+```bash
+curl -X POST http://192.168.29.78:3000/api/anchor_commitment \
+  -H "Content-Type: application/json" \
+  -d '{
+    "commitment_hash": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+    "policy_id": "treasury_settlement_v1",
+    "txn_ref": "SETTLE-2026-03-02-001",
     "amount": 5000000000,
-    "currency": "INR",
-    "sender": {
-      "id": "BANK_A",
-      "name": "Bank A - Commercial Bank"
-    },
-    "receiver": {
-      "id": "BANK_B",
-      "name": "Bank B - Investment Bank"
-    }
-  },
-  "steps": [...]
-}
+    "metadata": {"sender": "Bank A", "receiver": "Bank B", "currency": "INR"}
+  }'
+```
+
+### Verify a Proof (ProofCortex Integration)
+
+```bash
+curl -X POST http://192.168.29.78:3000/api/verify_proof \
+  -H "Content-Type: application/json" \
+  -d '{
+    "commitment_hash": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+    "proof_hash": "deadbeef...",
+    "proof_data": [1,2,3],
+    "proof_type": "STARK"
+  }'
+```
+
+### Query Commitment / Proof / Events
+
+```bash
+# Commitment status
+curl http://192.168.29.78:3000/api/commitment/a1b2c3d4...
+
+# Proof status
+curl http://192.168.29.78:3000/api/proof_status/deadbeef...
+
+# All events
+curl http://192.168.29.78:3000/api/events
+
+# Dashboard stats
+curl http://192.168.29.78:3000/api/stats
 ```
 
 ---
 
-### Execute Settlement Step-by-Step
+## WASM Capsule Examples
 
-**Step 1: Anchor Commitment**
+### Upload a Capsule
+
 ```bash
-curl -X POST http://localhost:50051/demo/settlements/demo_001/steps/1
+# Base64-encode a .wasm file and upload
+curl -X POST http://192.168.29.78:3000/capsule \
+  -H "Content-Type: application/json" \
+  -d '{"id": "hello_capsule", "code": "<base64-wasm>"}'
 ```
 
-**Step 2: Blockchain Confirmation**
+### Invoke a Capsule
+
 ```bash
-curl -X POST http://localhost:50051/demo/settlements/demo_001/steps/2
+curl -X POST http://192.168.29.78:3000/capsule/hello_capsule/invoke_wasm \
+  -H "Content-Type: application/json" \
+  -d '{"input": ""}'
 ```
 
-**Step 3: Submit Proof**
+For authoring capsules, see the [Capsule Developer Manual](docs/CAPSULE_DEVELOPER_MANUAL.md) or use the Capsule Editor IDE in the Explorer UI.
+
+---
+
+## Settlement Routes (Bank Operations)
+
+### Approve a Bank
+
 ```bash
-curl -X POST http://localhost:50051/demo/settlements/demo_001/steps/3
+curl -X POST http://192.168.29.78:3000/bank/approve \
+  -H "Content-Type: application/json" \
+  -d '{"account_id": "bank_a"}'
 ```
 
-**Step 4: Verify Proof**
+### Set Daily Mint Limit
+
 ```bash
-curl -X POST http://localhost:50051/demo/settlements/demo_001/steps/4
+curl -X POST http://192.168.29.78:3000/bank/daily_limit \
+  -H "Content-Type: application/json" \
+  -d '{"account_id": "bank_a", "token": "FLW", "limit": 100000000}'
 ```
 
-**Step 5: Mint FloweR Tokens**
-```bash
-curl -X POST http://localhost:50051/demo/settlements/demo_001/steps/5
-```
+### Settlement Mint / Redeem / Transfer
 
-**Step 6: Burn Collateral**
 ```bash
-curl -X POST http://localhost:50051/demo/settlements/demo_001/steps/6
-```
+# Settlement mint (approved banks only)
+curl -X POST http://192.168.29.78:3000/settlement/mint \
+  -H "Content-Type: application/json" \
+  -d '{"caller": "bank_a", "token": "FLW", "amount": 50000000}'
 
-**Step 7: Update Status**
-```bash
-curl -X POST http://localhost:50051/demo/settlements/demo_001/steps/7
-```
+# Settlement redeem (burn)
+curl -X POST http://192.168.29.78:3000/settlement/redeem \
+  -H "Content-Type: application/json" \
+  -d '{"caller": "bank_a", "token": "FLW", "amount": 10000000}'
 
-**Step 8: Emit Completion Event**
-```bash
-curl -X POST http://localhost:50051/demo/settlements/demo_001/steps/8
+# Settlement transfer
+curl -X POST http://192.168.29.78:3000/settlement/transfer \
+  -H "Content-Type: application/json" \
+  -d '{"from": "bank_a", "to": "bank_b", "token": "FLW", "amount": 5000000}'
 ```
 
 ---
 
-### Auto-Execute All Steps
-
-**Quick demo mode:**
-```bash
-curl -X POST http://localhost:50051/demo/settlements/demo_001/auto-execute
-```
-
-This executes all 8 steps in sequence automatically.
-
----
-
-### Get Settlement Status
+## FortressDigital Integration Example
 
 ```bash
-curl http://localhost:50051/demo/settlements/demo_001
-```
+# Ensure FortressDigital is running with real integrations
+FLOW_ANCHOR_MODE=http \
+PROOF_MODE=http \
+CUSTODY_MODE=http \
+cargo run --manifest-path FortressDigital/Cargo.toml
 
-**Response:**
-```json
-{
-  "success": true,
-  "scenario_id": "demo_001",
-  "config": {...},
-  "steps": [...],
-  "current_step": 8,
-  "completion_percentage": 100,
-  "is_complete": true,
-  "commitment_hash": "a1b2c3d4...",
-  "proof_hash": "x9y8z7...",
-  "block_height": 1002,
-  "started_at": 1708704000,
-  "completed_at": 1708704120
-}
-```
-
----
-
-### List All Settlements
-
-```bash
-curl http://localhost:50051/demo/settlements
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "scenarios": [
-    {
-      "scenario_id": "demo_001",
-      "amount": "₹50000000",
-      "sender": "Bank A - Commercial Bank",
-      "receiver": "Bank B - Investment Bank",
-      "current_step": 8,
-      "completion_percentage": 100,
-      "is_complete": true
-    }
-  ],
-  "total_count": 1
-}
-```
-
----
-
-### Get Real-Time Events
-
-**All events:**
-```bash
-curl http://localhost:50051/demo/events
-```
-
-**Events for specific settlement:**
-```bash
-curl http://localhost:50051/demo/events?scenario_id=demo_001
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "events": [
-    {
-      "event_id": "evt_001",
-      "event_type": "commitment.anchored",
-      "commitment_hash": "a1b2c3d4...",
-      "block_height": 1000,
-      "timestamp": 1708704000,
-      "details": "Settlement commitment anchored"
-    },
-    {
-      "event_id": "evt_002",
-      "event_type": "proof.verified",
-      "commitment_hash": "a1b2c3d4...",
-      "proof_hash": "x9y8z7...",
-      "block_height": 1002,
-      "timestamp": 1708704120,
-      "details": "Proof verified successfully"
-    }
-  ],
-  "total_count": 2
-}
-```
-
----
-
-### Get Dashboard Statistics
-
-```bash
-curl http://localhost:50051/demo/stats
-```
-
-**Response:**
-```json
-{
-  "total_settlements": 1,
-  "completed_settlements": 1,
-  "in_progress_settlements": 0,
-  "total_events": 8,
-  "total_commitments": 1,
-  "total_proofs": 1,
-  "total_value_formatted": "₹50000000 / 50000000.000000 FLOWER",
-  "block_height": 1002
-}
-```
-
----
-
-### Reset Settlement
-
-```bash
-curl -X DELETE http://localhost:50051/demo/settlements/demo_001
+# Submit a settlement through FortressDigital
+curl -X POST http://192.168.29.78:8821/v1/settlements \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer demo-alice" \
+  -H "x-device-id: corp-laptop-17" \
+  -H "x-geo-region: corp_hq" \
+  -d '{
+    "amount": 12000,
+    "currency": "FLOWER",
+    "counterparty_wallet": "wallet_abc123",
+    "purpose_code": "vendor_payout",
+    "user_id": "alice",
+    "user_role": "treasury_ops"
+  }'
 ```
 
 ---
 
 ## Demo Scenarios
 
-### Scenario 1: Complete Settlement Flow
+For guided walkthroughs, see the [demo-scenarios/](../demo-scenarios/) folder:
 
-```bash
-# Create settlement
-curl -X POST http://localhost:50051/demo/settlements \
-  -H "Content-Type: application/json" \
-  -d '{"scenario_id": "settlement_001", "amount": 5000000000}'
-
-# Auto-execute all steps
-curl -X POST http://localhost:50051/demo/settlements/settlement_001/auto-execute
-
-# Check status
-curl http://localhost:50051/demo/settlements/settlement_001
-
-# View events
-curl http://localhost:50051/demo/events?scenario_id=settlement_001
-```
-
----
-
-### Scenario 2: Multiple Concurrent Settlements
-
-```bash
-# Create multiple settlements with different amounts
-for i in {1..10}; do
-  curl -X POST http://localhost:50051/demo/settlements \
-    -H "Content-Type: application/json" \
-    -d "{\"scenario_id\": \"settlement_00$i\", \"amount\": $((i * 1000000000))}"
-done
-
-# Auto-execute all
-for i in {1..10}; do
-  curl -X POST http://localhost:50051/demo/settlements/settlement_00$i/auto-execute
-done
-
-# List all settlements
-curl http://localhost:50051/demo/settlements
-
-# View stats
-curl http://localhost:50051/demo/stats
-```
-
----
-
-### Scenario 3: Step-by-Step with Monitoring
-
-```bash
-# Create settlement
-curl -X POST http://localhost:50051/demo/settlements \
-  -H "Content-Type: application/json" \
-  -d '{"scenario_id": "monitored_001", "amount": 10000000000}'
-
-# Execute steps one by one with status checks
-for step in {1..8}; do
-  echo "Executing step $step..."
-  curl -X POST http://localhost:50051/demo/settlements/monitored_001/steps/$step
-  echo "\n\nStatus after step $step:"
-  curl http://localhost:50051/demo/settlements/monitored_001
-  echo "\n\n---\n"
-  sleep 2
-done
-```
-
----
-
-## Expected Outputs
-
-### Step 1 Output (Anchor Commitment)
-```json
-{
-  "success": true,
-  "scenario_id": "demo_001",
-  "step_number": 1,
-  "step_name": "Anchor Settlement Commitment",
-  "message": "Commitment anchored successfully",
-  "commitment_hash": "generated_hash_here...",
-  "block_height": 1000
-}
-```
-
-### Step 3 Output (Submit Proof)
-```json
-{
-  "success": true,
-  "scenario_id": "demo_001",
-  "step_number": 3,
-  "step_name": "Submit STARK Proof",
-  "message": "Proof submitted successfully",
-  "commitment_hash": "previous_commitment_hash...",
-  "proof_hash": "generated_proof_hash..."
-}
-```
-
-### Step 5 Output (Mint FloweR)
-```json
-{
-  "success": true,
-  "scenario_id": "demo_001",
-  "step_number": 5,
-  "step_name": "Mint FloweR Tokens",
-  "message": "Minted 50000000.000000 FLOWER to Bank B - Investment Bank"
-}
-```
-
----
-
-## FloweR Token Calculations
-
-### INR to FLOWER Conversion
-```
-Amount: ₹50,000,000 (50M rupees)
-      = 5,000,000,000 paise (since 1 rupee = 100 paise)
-      
-FLOWER: 1 INR = 1 FLOWER (1:1 peg)
-        1 FLOWER = 1,000,000 base units (6 decimals)
-        
-Result: 5,000,000,000 paise × 10,000 = 50,000,000,000,000 base units
-        = 50,000,000.000000 FLOWER
-```
-
-### FLOWER to INR Conversion
-```
-Amount: 50,000,000.000000 FLOWER
-      = 50,000,000,000,000 base units
-      
-INR: base_units / 10,000 = paise
-     50,000,000,000,000 / 10,000 = 5,000,000,000 paise
-     = ₹50,000,000
-```
+1. **Identity & Access Setup** — AuthBuddy admin configuration
+2. **Wallet Creation** — KeyCortex wallet generation
+3. **Token Minting** — Create stablecoins on FlowCortex Explorer
+4. **Treasury Settlement** — End-to-end settlement via Treasury UI
+5. **Proof Anchoring** — Cryptographic proof on L1 chain
+6. **Live Monitoring** — FortressDigital Console real-time feed
+7. **RBAC & Access Policy** — Security model deep dive
 
 ---
 
 ## Troubleshooting
 
-### Settlement Not Found
-**Error:** `"Scenario not found: demo_001"`  
-**Solution:** Create the settlement first using POST /demo/settlements
-
-### Cannot Execute Step Out of Order
-**Error:** `"Cannot complete step 5. Current step is 3"`  
-**Solution:** Execute steps sequentially (1 → 2 → 3 → ... → 8)
-
-### Commitment Already Anchored
-**Behavior:** Idempotent - returns same response  
-**Expected:** This is correct behavior, not an error
+| Problem | Solution |
+|---------|----------|
+| Service won't start | Run `./deploy-local.sh diagnose` to identify which check fails |
+| Port already in use | `lsof -i :3000` to find and kill the process |
+| Token not found | Create the token first with `POST /token/create` |
+| Balance is 0 | Mint tokens with `POST /mint` and produce a block with `POST /block` |
+| FortressDigital returns mock data | Set `FLOW_ANCHOR_MODE=http` env var before starting |
+| Capsule compile fails | Check WAT syntax; use the Example Gallery in the Explorer Capsule Editor |
 
 ---
 
-## Testing Checklist
-
-- [ ] Create settlement ✓
-- [ ] Execute step 1 (anchor) ✓
-- [ ] Execute step 2 (confirm) ✓
-- [ ] Execute step 3 (submit proof) ✓
-- [ ] Execute step 4 (verify) ✓
-- [ ] Execute step 5 (mint tokens) ✓
-- [ ] Execute step 6 (burn collateral) ✓
-- [ ] Execute step 7 (update status) ✓
-- [ ] Execute step 8 (emit event) ✓
-- [ ] Check final status (100% complete) ✓
-- [ ] View all events ✓
-- [ ] Check dashboard stats ✓
-- [ ] Test multiple concurrent settlements ✓
-- [ ] Test auto-execute mode ✓
-
----
-
-## Integration Points
-
-### For FortressDigital
-```rust
-// Call FlowCortex to anchor settlement
-let response = client.anchor_commitment(AnchorCommitmentRequest {
-    commitment_hash: calculate_commitment_hash(&settlement),
-    txn_ref: settlement.reference_id,
-    amount: settlement.amount,
-    metadata: settlement.to_metadata(),
-}).await?;
-
-// Store block_height and tx_hash for tracking
-settlement.block_height = response.block_height;
-settlement.tx_hash = response.tx_hash;
-```
-
-### For ProofCortex
-```rust
-// Generate and submit proof
-let proof_data = generate_stark_proof(&settlement);
-let response = client.verify_proof(VerifyProofRequest {
-    commitment_hash: settlement.commitment_hash,
-    proof_hash: calculate_proof_hash(&proof_data),
-    proof_data: proof_data,
-    proof_type: "STARK".to_string(),
-}).await?;
-
-// Check verification result
-if response.verified {
-    println!("Proof verified at block {}", response.block_height);
-}
-```
-
----
-
-## Demo Presentation Tips
-
-1. **Start Simple:** Create one settlement and auto-execute
-2. **Show Monitoring:** Use status API to watch progress
-3. **Demonstrate Events:** Show real-time event stream
-4. **Scale Up:** Create 10 concurrent settlements
-5. **Show Stats:** Display dashboard statistics
-6. **Explain Security:** Highlight immutability and proof binding
-7. **Discuss Compliance:** Show audit trail and event log
-
----
-
-## Next Steps
-
-After completing the demo:
-
-1. **Phase 14:** Run comprehensive test suite
-2. **Phase 15:** Complete API documentation
-3. **Phase 16:** Deploy demo dashboard UI
-4. **Production:** Integrate real STARK verifier from ProofCortex
-
----
-
-**Ready to Demo!** 🚀
-
-All Phase 13 features implemented and ready for demonstration.
+**Ready to Demo!** ✅

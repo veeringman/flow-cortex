@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/wabt@1.0.36/index.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -569,53 +570,125 @@
                         </div>
                     </div>
 
-                    <!-- Capsules Tab -->
+                    <!-- Capsules Tab (IDE) -->
                     <div id="capsules-content" class="tab-content hidden">
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div class="card p-6">
-                                <div class="section-header">
-                                    <i class="fas fa-plus"></i>
-                                    <h3 class="text-lg font-semibold">Upload Capsule</h3>
+                        <!-- Example Gallery -->
+                        <div class="card p-4 mb-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="section-header mb-0">
+                                    <i class="fas fa-book-open"></i>
+                                    <h3 class="text-lg font-semibold">Example Gallery</h3>
                                 </div>
-                                <div class="space-y-4">
-                                    <div>
-                                        <label class="block text-sm font-medium mb-2">Capsule ID</label>
-                                        <input id="capsule-id" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" placeholder="my_capsule" />
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium mb-2">Code (Base64)</label>
-                                        <textarea id="capsule-code" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 h-32" placeholder="Base64 encoded WASM or bytecode"></textarea>
-                                    </div>
-                                    <button onclick="uploadCapsule()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium bg-green-500 hover:bg-green-600">
-                                        <i class="fas fa-upload mr-2"></i>Upload
-                                    </button>
-                                </div>
-                                <div id="capsule-upload-output" class="output-box hidden mt-4"></div>
+                                <button onclick="listCapsules()" class="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+                                    <i class="fas fa-sync-alt mr-1"></i>Refresh List
+                                </button>
                             </div>
-
-                            <div class="card p-6">
-                                <div class="section-header">
-                                    <i class="fas fa-play"></i>
-                                    <h3 class="text-lg font-semibold">List & Invoke</h3>
-                                </div>
-                                <div class="space-y-4">
-                                    <button onclick="listCapsules()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium">
-                                        <i class="fas fa-list mr-2"></i>List Capsules
-                                    </button>
-                                    <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-                                        <label class="block text-sm font-medium mb-2">Capsule ID to Invoke</label>
-                                        <input id="invoke-id" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 mb-2" placeholder="capsule_id" />
-                                        <label class="block text-sm font-medium mb-2">Input (Base64)</label>
-                                        <input id="invoke-input" class="input-field w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" placeholder="base64 input" />
-                                    </div>
-                                    <button onclick="invokeCapsule()" class="button-primary w-full px-4 py-2 text-white rounded-lg font-medium bg-purple-500 hover:bg-purple-600">
-                                        <i class="fas fa-play mr-2"></i>Invoke
-                                    </button>
-                                </div>
-                                <div id="capsule-invoke-output" class="output-box hidden mt-4"></div>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2" id="example-gallery">
+                                <button onclick="loadExample('hello')" class="p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 text-left transition">
+                                    <p class="text-sm font-semibold">Hello World</p>
+                                    <p class="text-xs text-gray-500">Logging demo</p>
+                                </button>
+                                <button onclick="loadExample('balance')" class="p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 text-left transition">
+                                    <p class="text-sm font-semibold">Balance Check</p>
+                                    <p class="text-xs text-gray-500">Query balances</p>
+                                </button>
+                                <button onclick="loadExample('distribute')" class="p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 text-left transition">
+                                    <p class="text-sm font-semibold">FloweR Mint</p>
+                                    <p class="text-xs text-gray-500">Mint + distribute</p>
+                                </button>
+                                <button onclick="loadExample('compliance')" class="p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 text-left transition">
+                                    <p class="text-sm font-semibold">Compliance</p>
+                                    <p class="text-xs text-gray-500">Threshold check</p>
+                                </button>
                             </div>
                         </div>
-                        <div id="capsules-output" class="output-box hidden mt-6"></div>
+
+                        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                            <!-- Code Editor Panel -->
+                            <div class="card p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="section-header mb-0">
+                                        <i class="fas fa-code"></i>
+                                        <h3 class="text-lg font-semibold">WAT Editor</h3>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <input id="capsule-id" class="input-field px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 w-40" placeholder="capsule_id" />
+                                        <button onclick="compileAndDeploy()" class="px-3 py-1.5 text-sm text-white rounded-lg font-medium bg-green-500 hover:bg-green-600 transition" id="deploy-btn">
+                                            <i class="fas fa-rocket mr-1"></i>Compile & Deploy
+                                        </button>
+                                    </div>
+                                </div>
+                                <textarea id="capsule-editor"
+                                    class="w-full font-mono text-sm p-4 bg-gray-900 text-green-400 rounded-lg border border-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                    style="min-height: 400px; tab-size: 4; line-height: 1.5; resize: vertical;"
+                                    spellcheck="false"
+                                    placeholder=";; Write your WAT capsule here..."
+                                ></textarea>
+                                <div id="editor-status" class="mt-2 text-xs text-gray-500 flex items-center justify-between">
+                                    <span id="editor-line-count">Lines: 0</span>
+                                    <span id="editor-compile-status"></span>
+                                </div>
+                            </div>
+
+                            <!-- Right Column: Deploy, Invoke, Output -->
+                            <div class="space-y-4">
+                                <!-- Invoke Panel -->
+                                <div class="card p-4">
+                                    <div class="section-header">
+                                        <i class="fas fa-play"></i>
+                                        <h3 class="text-lg font-semibold">Invoke Capsule</h3>
+                                    </div>
+                                    <div class="space-y-3">
+                                        <div class="flex gap-2">
+                                            <select id="invoke-capsule-select" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
+                                                <option value="">Select capsule...</option>
+                                            </select>
+                                            <select id="invoke-mode" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
+                                                <option value="wasm">WASM Runtime</option>
+                                                <option value="legacy">Legacy</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-400">Input JSON (auto base64-encoded)</label>
+                                            <textarea id="invoke-json-input"
+                                                class="w-full font-mono text-sm p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 h-20"
+                                                placeholder='{"action": "hello"}'
+                                            ></textarea>
+                                        </div>
+                                        <div class="flex gap-2">
+                                            <button onclick="invokeCapsuleIDE()" class="flex-1 px-4 py-2 text-sm text-white rounded-lg font-medium bg-purple-500 hover:bg-purple-600 transition">
+                                                <i class="fas fa-play mr-1"></i>Run
+                                            </button>
+                                            <button onclick="queryBalanceDiff()" class="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                                                <i class="fas fa-balance-scale mr-1"></i>Balance Diff
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Output Panel -->
+                                <div class="card p-4">
+                                    <div class="section-header">
+                                        <i class="fas fa-terminal"></i>
+                                        <h3 class="text-lg font-semibold">Output</h3>
+                                    </div>
+                                    <div id="capsule-ide-output" class="font-mono text-sm bg-gray-900 text-gray-300 rounded-lg p-4 space-y-2 min-h-[200px] max-h-[500px] overflow-auto">
+                                        <p class="text-gray-500 italic">Output will appear here after invocation...</p>
+                                    </div>
+                                </div>
+
+                                <!-- Deployed Capsules -->
+                                <div class="card p-4">
+                                    <div class="section-header">
+                                        <i class="fas fa-box"></i>
+                                        <h3 class="text-lg font-semibold">Deployed Capsules</h3>
+                                    </div>
+                                    <div id="capsule-list-panel" class="space-y-1 max-h-[200px] overflow-auto">
+                                        <p class="text-sm text-gray-500 italic">Click "Refresh List" to load...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Anchors Tab -->
@@ -1205,59 +1278,301 @@
             displayOutput('snapshot-output', data);
         }
 
-        // ===== Capsules Tab =====
-        async function uploadCapsule() {
-            const id = document.getElementById('capsule-id').value;
-            const code = document.getElementById('capsule-code').value;
-            
-            if (!id || !code) {
-                displayOutput('capsule-upload-output', { error: 'ID and code are required' });
-                return;
+        // ===== Capsules IDE Tab =====
+        const WAT_EXAMPLES = {
+            hello: `(module
+  (import "env" "host_log" (func $host_log (param i32 i32)))
+  (import "env" "host_output" (func $host_output (param i32 i32)))
+  (memory (export "memory") 1)
+  (data (i32.const 0) "Hello from capsule!")
+  (data (i32.const 20) "capsule_ok")
+  (func (export "alloc") (param i32) (result i32) i32.const 256)
+  (func (export "capsule_main") (param i32 i32) (result i32)
+    (call $host_log (i32.const 0) (i32.const 19))
+    (call $host_output (i32.const 20) (i32.const 10))
+    (i32.const 0)
+  )
+)`,
+            balance: `(module
+  (import "env" "host_balance" (func $host_balance (param i32 i32 i32 i32) (result i64)))
+  (import "env" "host_log" (func $host_log (param i32 i32)))
+  (import "env" "host_output" (func $host_output (param i32 i32)))
+  (memory (export "memory") 1)
+  (data (i32.const 0) "treasury")
+  (data (i32.const 16) "FLW")
+  (data (i32.const 32) "balance_ok")
+  (data (i32.const 48) "Balance query done")
+  (func (export "alloc") (param i32) (result i32) i32.const 256)
+  (func (export "capsule_main") (param i32 i32) (result i32)
+    (drop (call $host_balance (i32.const 0) (i32.const 8) (i32.const 16) (i32.const 3)))
+    (call $host_log (i32.const 48) (i32.const 18))
+    (call $host_output (i32.const 32) (i32.const 10))
+    (i32.const 0)
+  )
+)`,
+            distribute: `(module
+  (import "env" "host_mint" (func $host_mint (param i32 i32 i32 i32 i64) (result i32)))
+  (import "env" "host_transfer" (func $host_transfer (param i32 i32 i32 i32 i32 i32 i64) (result i32)))
+  (import "env" "host_log" (func $host_log (param i32 i32)))
+  (import "env" "host_output" (func $host_output (param i32 i32)))
+  (memory (export "memory") 1)
+  (data (i32.const 0) "treasury")
+  (data (i32.const 16) "FLW")
+  (data (i32.const 32) "alice")
+  (data (i32.const 48) "Minting 1000 FLW")
+  (data (i32.const 80) "Distributing 200 FLW to alice")
+  (data (i32.const 128) "distribute_done")
+  (func (export "alloc") (param i32) (result i32) i32.const 256)
+  (func (export "capsule_main") (param i32 i32) (result i32)
+    (call $host_log (i32.const 48) (i32.const 16))
+    (drop (call $host_mint (i32.const 0) (i32.const 8) (i32.const 16) (i32.const 3) (i64.const 1000)))
+    (call $host_log (i32.const 80) (i32.const 29))
+    (drop (call $host_transfer (i32.const 0) (i32.const 8) (i32.const 32) (i32.const 5) (i32.const 16) (i32.const 3) (i64.const 200)))
+    (call $host_output (i32.const 128) (i32.const 15))
+    (i32.const 0)
+  )
+)`,
+            compliance: `(module
+  (import "env" "host_balance" (func $host_balance (param i32 i32 i32 i32) (result i64)))
+  (import "env" "host_log" (func $host_log (param i32 i32)))
+  (import "env" "host_output" (func $host_output (param i32 i32)))
+  (memory (export "memory") 1)
+  (data (i32.const 0) "treasury")
+  (data (i32.const 16) "FLW")
+  (data (i32.const 32) "PASS: within threshold")
+  (data (i32.const 64) "FAIL: exceeds threshold")
+  (func (export "alloc") (param i32) (result i32) i32.const 256)
+  (func (export "capsule_main") (param i32 i32) (result i32)
+    (local $bal i64)
+    (local.set $bal (call $host_balance (i32.const 0) (i32.const 8) (i32.const 16) (i32.const 3)))
+    (if (i64.le_u (local.get $bal) (i64.const 10000))
+      (then
+        (call $host_log (i32.const 32) (i32.const 22))
+        (call $host_output (i32.const 32) (i32.const 22))
+      )
+      (else
+        (call $host_log (i32.const 64) (i32.const 23))
+        (call $host_output (i32.const 64) (i32.const 23))
+      )
+    )
+    (i32.const 0)
+  )
+)`
+        };
+
+        function loadExample(name) {
+            const editor = document.getElementById('capsule-editor');
+            if (WAT_EXAMPLES[name]) {
+                editor.value = WAT_EXAMPLES[name];
+                document.getElementById('capsule-id').value = name + '_capsule';
+                updateEditorLineCount();
+                capsuleIDELog(`Loaded example: ${name}`, 'info');
             }
-            
+        }
+
+        function updateEditorLineCount() {
+            const editor = document.getElementById('capsule-editor');
+            const lines = (editor.value.match(/\n/g) || []).length + 1;
+            document.getElementById('editor-line-count').textContent = `Lines: ${lines}`;
+        }
+
+        // Attach line count updater
+        document.addEventListener('DOMContentLoaded', () => {
+            const ed = document.getElementById('capsule-editor');
+            if (ed) {
+                ed.addEventListener('input', updateEditorLineCount);
+                // Tab key support
+                ed.addEventListener('keydown', function(e) {
+                    if (e.key === 'Tab') {
+                        e.preventDefault();
+                        const start = this.selectionStart;
+                        const end = this.selectionEnd;
+                        this.value = this.value.substring(0, start) + '  ' + this.value.substring(end);
+                        this.selectionStart = this.selectionEnd = start + 2;
+                    }
+                });
+            }
+        });
+
+        function capsuleIDELog(msg, type = 'text') {
+            const out = document.getElementById('capsule-ide-output');
+            if (!out) return;
+            const colors = { error: 'text-red-400', success: 'text-green-400', info: 'text-blue-400', warn: 'text-yellow-400', text: 'text-gray-300' };
+            const icons = { error: 'fa-times-circle', success: 'fa-check-circle', info: 'fa-info-circle', warn: 'fa-exclamation-triangle', text: 'fa-chevron-right' };
+            const ts = new Date().toLocaleTimeString();
+            // Remove placeholder if present
+            const placeholder = out.querySelector('.italic');
+            if (placeholder) placeholder.remove();
+            out.innerHTML += `<div class="${colors[type] || colors.text}"><i class="fas ${icons[type] || icons.text} mr-1"></i><span class="text-gray-500">[${ts}]</span> ${msg}</div>`;
+            out.scrollTop = out.scrollHeight;
+        }
+
+        function base64Encode(bytes) {
+            let binary = '';
+            for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+            return btoa(binary);
+        }
+
+        async function compileAndDeploy() {
+            const wat = document.getElementById('capsule-editor').value.trim();
+            const id = document.getElementById('capsule-id').value.trim();
+            if (!wat) { capsuleIDELog('Editor is empty', 'error'); return; }
+            if (!id) { capsuleIDELog('Capsule ID is required', 'error'); return; }
+
+            const status = document.getElementById('editor-compile-status');
+            const btn = document.getElementById('deploy-btn');
+            btn.disabled = true;
+            status.textContent = 'Compiling...';
+            status.className = 'text-xs text-yellow-500';
+            capsuleIDELog('Compiling WAT → WASM...', 'info');
+
+            try {
+                // Try using wabt.js if available
+                if (typeof WabtModule !== 'undefined' || typeof wabt !== 'undefined') {
+                    const w = typeof wabt !== 'undefined' ? wabt : await WabtModule();
+                    const module = w.parseWat('capsule.wat', wat);
+                    module.resolveNames();
+                    module.validate();
+                    const { buffer } = module.toBinary({ write_debug_names: false });
+                    module.destroy();
+                    const b64 = base64Encode(new Uint8Array(buffer));
+                    capsuleIDELog(`Compiled: ${buffer.byteLength} bytes WASM`, 'success');
+                    status.textContent = `Compiled (${buffer.byteLength}B)`;
+                    status.className = 'text-xs text-green-500';
+                    await deployCapsule(id, b64);
+                } else {
+                    // Fallback: try native WebAssembly.compile with WAT→WASM
+                    capsuleIDELog('wabt.js not loaded — attempting base64 raw upload', 'warn');
+                    const b64 = btoa(wat);
+                    status.textContent = 'Raw upload (no compile)';
+                    status.className = 'text-xs text-yellow-500';
+                    await deployCapsule(id, b64);
+                }
+            } catch (e) {
+                capsuleIDELog(`Compile error: ${e.message}`, 'error');
+                status.textContent = 'Compile failed';
+                status.className = 'text-xs text-red-500';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function deployCapsule(id, code) {
+            capsuleIDELog(`Deploying capsule "${id}"...`, 'info');
             const data = await apiCall('/capsule', {
                 method: 'POST',
                 body: JSON.stringify({ id, code })
             });
-            displayOutput('capsule-upload-output', data);
-            
-            if (!data.error) {
-                alert('Capsule uploaded successfully!');
-                // Clear inputs
-                document.getElementById('capsule-id').value = '';
-                document.getElementById('capsule-code').value = '';
-                // Refresh capsules list
-                setTimeout(listCapsules, 500);
+            if (data.error) {
+                capsuleIDELog(`Deploy failed: ${JSON.stringify(data.error)}`, 'error');
+            } else {
+                capsuleIDELog(`Capsule "${id}" deployed successfully!`, 'success');
+                listCapsules(); // refresh list and dropdown
             }
         }
 
         async function listCapsules() {
             const data = await apiCall('/capsule');
-            displayOutput('capsules-output', data);
-            
+            const panel = document.getElementById('capsule-list-panel');
+            const select = document.getElementById('invoke-capsule-select');
+
             if (!data.error && data.capsules && data.capsules.length > 0) {
-                const output = document.getElementById('capsules-output');
-                if (output) {
-                    output.innerHTML = '<div class="space-y-2">' + data.capsules.map(id => `
-                        <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg flex justify-between items-center">
-                            <code class="text-sm">${id}</code>
-                            <button onclick="navigator.clipboard.writeText('${id}'); alert('Copied!')" class="text-blue-600 hover:text-blue-800">
-                                <i class="fas fa-copy"></i>
-                            </button>
+                // Update list panel
+                if (panel) {
+                    panel.innerHTML = data.capsules.map(id => `
+                        <div class="flex items-center justify-between p-2 bg-gray-100 dark:bg-gray-800 rounded text-sm">
+                            <code class="truncate mr-2">${id}</code>
+                            <div class="flex gap-1 shrink-0">
+                                <button onclick="document.getElementById('invoke-capsule-select').value='${id}'" class="text-purple-500 hover:text-purple-700 text-xs" title="Select for invoke">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                <button onclick="navigator.clipboard.writeText('${id}')" class="text-blue-500 hover:text-blue-700 text-xs" title="Copy ID">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
                         </div>
-                    `).join('') + '</div>';
+                    `).join('');
+                }
+                // Update dropdown
+                if (select) {
+                    const current = select.value;
+                    select.innerHTML = '<option value="">Select capsule...</option>' +
+                        data.capsules.map(id => `<option value="${id}" ${id === current ? 'selected' : ''}>${id}</option>`).join('');
+                }
+            } else {
+                if (panel) panel.innerHTML = '<p class="text-sm text-gray-500 italic">No capsules deployed</p>';
+                if (select) select.innerHTML = '<option value="">No capsules</option>';
+            }
+        }
+
+        async function invokeCapsuleIDE() {
+            const capsuleId = document.getElementById('invoke-capsule-select').value;
+            if (!capsuleId) { capsuleIDELog('Select a capsule to invoke', 'error'); return; }
+
+            const jsonInput = document.getElementById('invoke-json-input').value.trim();
+            const mode = document.getElementById('invoke-mode').value;
+            let input = '';
+            if (jsonInput) {
+                try {
+                    JSON.parse(jsonInput); // validate
+                    input = btoa(jsonInput);
+                } catch (e) {
+                    input = btoa(jsonInput); // send raw
+                }
+            }
+
+            capsuleIDELog(`Invoking "${capsuleId}" (${mode})...`, 'info');
+
+            const endpoint = mode === 'wasm'
+                ? `/capsule/${encodeURIComponent(capsuleId)}/invoke_wasm`
+                : `/capsule/${encodeURIComponent(capsuleId)}/invoke`;
+
+            const data = await apiCall(endpoint, {
+                method: 'POST',
+                body: JSON.stringify({ input })
+            });
+
+            if (data.error) {
+                capsuleIDELog(`Invoke error: ${JSON.stringify(data.error)}`, 'error');
+            } else {
+                capsuleIDELog('Invoke completed!', 'success');
+
+                // Display structured output
+                if (data.return_code !== undefined) {
+                    const rc = data.return_code;
+                    capsuleIDELog(`Return code: ${rc} (${rc === 0 ? 'OK' : 'ERROR'})`, rc === 0 ? 'success' : 'warn');
+                }
+                if (data.output) {
+                    try {
+                        const decoded = atob(data.output);
+                        capsuleIDELog(`Output: ${decoded}`, 'text');
+                    } catch { capsuleIDELog(`Output (raw): ${data.output}`, 'text'); }
+                }
+                if (data.logs && data.logs.length > 0) {
+                    capsuleIDELog(`--- Logs (${data.logs.length}) ---`, 'info');
+                    data.logs.forEach(l => capsuleIDELog(`  ${l}`, 'text'));
+                }
+                if (data.ops_applied !== undefined) {
+                    capsuleIDELog(`Ops applied: ${data.ops_applied}`, 'info');
+                }
+                // Show full JSON if none of the above
+                if (data.return_code === undefined && !data.output && !data.logs) {
+                    capsuleIDELog(`Response: ${JSON.stringify(data, null, 2)}`, 'text');
                 }
             }
         }
 
-        async function invokeCapsule() {
-            const id = document.getElementById('invoke-id').value;
-            const input = document.getElementById('invoke-input').value;
-            const data = await apiCall(`/capsule/${encodeURIComponent(id)}/invoke`, {
-                method: 'POST',
-                body: JSON.stringify({ input })
-            });
-            displayOutput('capsule-invoke-output', data);
+        async function queryBalanceDiff() {
+            capsuleIDELog('--- Balance Inspector ---', 'info');
+            const accounts = ['treasury', 'alice', 'bob'];
+            const tokens = ['FLW'];
+            for (const acct of accounts) {
+                for (const tok of tokens) {
+                    const data = await apiCall(`/balance/${encodeURIComponent(acct)}/${encodeURIComponent(tok)}`);
+                    const bal = data.balance ?? data.amount ?? JSON.stringify(data);
+                    capsuleIDELog(`  ${acct}/${tok}: ${bal}`, 'text');
+                }
+            }
         }
 
         // ===== Anchors Tab =====
@@ -1708,6 +2023,12 @@
             // Load theme preference
             if (localStorage.getItem('theme') === 'dark') {
                 document.documentElement.classList.add('dark');
+            }
+
+            // Initialize wabt.js for WAT compilation
+            if (typeof WabtModule === 'function') {
+                WabtModule().then(w => { window.wabt = w; console.log('wabt.js initialized'); })
+                    .catch(e => console.warn('wabt.js init failed:', e));
             }
 
             // Initial status check

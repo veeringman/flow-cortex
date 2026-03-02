@@ -3,44 +3,41 @@
 
 ### 1. Core Role in the Demo Architecture
 
-FlowCortex is expected to act as:
+FlowCortex acts as:
 
 **A deterministic anchoring and verification execution layer that immutably records authorization commitments and validates STARK proofs to produce independently verifiable settlement authorization.**
 
-It is not a generic blockchain in this demo — it is a **trust anchor + verifier runtime**.
+All capabilities described below are **implemented and working**.
 
 ---
 
-### 2. Functional Expectations
+### 2. Functional Capabilities (Delivered)
 
-#### 2.1 Commitment Anchoring (from FortressDigital)
+#### 2.1 Commitment Anchoring (from FortressDigital) ✅
 
-**Purpose**: Persist an immutable cryptographic commitment representing the exact authorization context.
+**Endpoint:** `POST /api/anchor_commitment`
 
-**Expectation**: FlowCortex must expose a deterministic write interface that:
-- Accepts a commitment_hash
-- Records it immutably
-- Returns block height & tx hash
-- Guarantees ordering and tamper-evidence
+**Implementation:**
+- Accepts commitment_hash, policy_id, txn_ref, timestamp, context_ref
+- Records immutably in ledger with block_height and tx_hash
+- Idempotent: same commitment submitted twice → same response
+- Rejects different commitment with same txn_ref
+- Called by FortressDigital via `HttpFlowAnchorClient` (`FLOW_ANCHOR_MODE=http`)
 
-**Required Guarantees**:
-- Once anchored, commitment cannot be modified or deleted
-- Same commitment submitted twice → idempotent result
-- Different commitment with same txn_ref → reject
+#### 2.2 Verifier Capsule Runtime (for ProofCortex) ✅
 
-#### 2.2 Verifier Capsule Runtime (for ProofCortex)
+**Endpoints:** `POST /capsule/{id}/invoke` (native), `POST /capsule/{id}/invoke_wasm` (WASM)
 
-**Purpose**: Provide an execution environment (Capsule) capable of verifying STARK proofs and binding them to anchored commitments.
+**Implementation:**
+- Native Rust verifier capsules (primary path)
+- WASM capsule runtime via wasmtime with sandboxed host functions
+- Host functions: `host_mint`, `host_transfer`, `host_burn`, `host_balance`, `host_log`, `host_output`
+- Ledger operations accumulated during execution, applied atomically on success
+- Capsule IDE in Explorer for development and testing
 
-**Expectation**: FlowCortex must support:
-- Loading a "Verifier Capsule"
-- Deterministic execution over submitted proofs
-- Cryptographic validation
-- Event emission on verification success/failure
+#### 2.3 Proof Verification Binding Logic ✅
 
-This capsule is the **trust arbiter in the demo**.
-
-#### 2.3 Proof Verification Binding Logic
+**Endpoint:** `POST /api/verify_proof`
 
 FlowCortex must enforce the invariant:
 
@@ -57,10 +54,11 @@ This ensures:
 
 ---
 
-### 3. Interface Expectations
+### 3. Interface Implementation
 
-#### 3.1 Commitment Anchoring API
+#### 3.1 Commitment Anchoring API ✅
 
+**Endpoint:** `POST /api/anchor_commitment`
 **Used by**: FortressDigital after policy decision.
 
 **Behavior**:
@@ -74,8 +72,9 @@ This ensures:
 - Duplicate conflicting context → reject
 - Duplicate identical anchor → return existing tx reference
 
-#### 3.2 Proof Submission API
+#### 3.2 Proof Submission API ✅
 
+**Endpoint:** `POST /api/verify_proof`
 **Used by**: ProofCortex after STARK proof generation.
 
 **Behavior**:
@@ -90,13 +89,14 @@ This ensures:
 - Invalid proof → reject + emit failure event
 - Hash mismatch → reject deterministically
 
-#### 3.3 Query Interfaces (Read APIs)
+#### 3.3 Query Interfaces (Read APIs) ✅
 
-FlowCortex must provide deterministic read APIs for:
-- Commitment lookup by hash
-- Proof verification status
-- Block inclusion details
-- Event retrieval for dashboards
+FlowCortex provides deterministic read APIs for:
+- `GET /api/commitment/{hash}` — Commitment lookup by hash
+- `GET /api/proof_status/{hash}` — Proof verification status
+- `GET /blocks` — Block inclusion details
+- `GET /api/events` — Event retrieval for dashboards
+- `GET /api/stats` — Dashboard statistics
 
 These will power:
 - Treasury UI status updates
@@ -214,19 +214,25 @@ This is important for evolving ProofCortex circuits.
 
 ---
 
-### 11. Minimal MVP Expectations (for Demo Build)
+### 11. Delivered MVP (All Complete)
 
-To support the demo, FlowCortex must minimally deliver:
+All capabilities required for demo are implemented and working:
 
-- Commitment anchoring endpoint
-- Verifier capsule skeleton (can mock STARK verify initially)
-- Proof submission endpoint
-- Deterministic event emission
-- Query APIs for commitment & verification status
-
-**Note**: No full blockchain complexity is required — focus is on deterministic anchoring + verifiable proof execution.
+- ✅ Commitment anchoring endpoint (`POST /api/anchor_commitment`)
+- ✅ Verifier capsule runtime (native Rust + WASM/wasmtime)
+- ✅ Proof submission endpoint (`POST /api/verify_proof`)
+- ✅ Deterministic event emission (`GET /api/events`)
+- ✅ Query APIs for commitment & verification status
+- ✅ FloweR stablecoin with full token lifecycle
+- ✅ Settlement routes (mint/redeem/transfer) for approved banks
+- ✅ Bank administration API (approve, daily limits)
+- ✅ Explorer UI (11 tabs including Capsule IDE)
+- ✅ gRPC services (6 total)
+- ✅ 29 REST API routes on port 3000
+- ✅ E2E test suite
 
 ---
 
-**Document Created:** February 23, 2026  
-**Expectations Version:** 1.0
+**Document Created:** February 23, 2026
+**Last Updated:** March 1, 2026
+**Expectations Version:** 2.0 — All delivered

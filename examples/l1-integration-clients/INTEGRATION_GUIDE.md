@@ -531,7 +531,7 @@ npm run example:node
 ```bash
 cd examples/l1-integration-clients/typescript
 npm run example:browser
-# Open http://localhost:8080/src/examples/browser-example.html
+# Open http://192.168.29.78:8080/src/examples/browser-example.html
 ```
 
 ### Python

@@ -1,3 +1,4 @@
+pub mod chain_params;
 pub mod consensus;
 pub mod ledger;
 pub mod node;

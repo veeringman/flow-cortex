@@ -161,7 +161,7 @@ cargo build --release
 # Should start on port 4000
 cargo run
 
-# Should load at http://localhost:4000
+# Should load at http://192.168.29.78:4000
 # All pages should work
 ```
 

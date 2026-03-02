@@ -32,7 +32,7 @@ This runs `examples/node-example.ts` which demonstrates:
 npm run example:browser
 ```
 
-Then open `http://localhost:8080/src/examples/browser-example.html` in your browser.
+Then open `http://192.168.29.78:8080/src/examples/browser-example.html` in your browser.
 
 The browser client provides an interactive UI for:
 - Account management

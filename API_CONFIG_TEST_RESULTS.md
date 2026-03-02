@@ -202,7 +202,7 @@ docker run -e BIND_ADDR="0.0.0.0:4000" flowcortex-explorer
 ```bash
 # Local development with multiple API configurations
 # Click "API Config" to switch between:
-# - http://localhost:3000 (local node)
+# - http://192.168.29.78:3000 (local node)
 # - http://192.168.1.100:3000 (test node)
 # - http://staging.api.com (staging environment)
 ```

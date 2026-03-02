@@ -1,29 +1,31 @@
 {
   "ledger": {
     "balances": {
-      "admin": {},
+      "admin": {
+        "usdx": 1000000
+      },
+      "test1": {
+        "proof": 75
+      },
       "alice": {
         "proof": 1
       },
       "test2": {
         "proof": 25
-      },
-      "test1": {
-        "proof": 75
       }
     },
     "admin": "admin",
     "tokens": {
-      "proof": {
-        "symbol": "proof",
-        "name": "Proof Token",
-        "decimals": 0,
-        "total_supply": 0,
+      "usdx": {
+        "symbol": "usdx",
+        "name": "Demo USD Stablecoin",
+        "decimals": 6,
+        "total_supply": 1000000,
         "creator": "admin",
-        "token_type": "native",
+        "token_type": "stablecoin",
         "status": "active",
         "created_at": 0,
-        "metadata": null
+        "metadata": "{\"issuer\":\"demo-treasury\",\"description\":\"Demo stablecoin for settlement\"}"
       },
       "flower": {
         "symbol": "flower",
@@ -35,9 +37,30 @@
         "status": "active",
         "created_at": 0,
         "metadata": null
+      },
+      "proof": {
+        "symbol": "proof",
+        "name": "Proof Token",
+        "decimals": 0,
+        "total_supply": 0,
+        "creator": "admin",
+        "token_type": "native",
+        "status": "active",
+        "created_at": 0,
+        "metadata": null
       }
     },
-    "token_events": [],
+    "token_events": [
+      {
+        "Created": {
+          "symbol": "usdx",
+          "creator": "admin",
+          "name": "Demo USD Stablecoin",
+          "decimals": 6,
+          "block_height": 0
+        }
+      }
+    ],
     "banks": {},
     "block_height": 0,
     "commitments": {},
@@ -193,56 +216,7 @@
       ]
     }
   ],
-  "pool": [
-    {
-      "kind": {
-        "Transfer": {
-          "from": "test1",
-          "to": "test2",
-          "token": "proof",
-          "amount": 25
-        }
-      },
-      "rw_set": {
-        "reads": [],
-        "writes": []
-      },
-      "proof": [
-        227,
-        176,
-        196,
-        66,
-        152,
-        252,
-        28,
-        20,
-        154,
-        251,
-        244,
-        200,
-        153,
-        111,
-        185,
-        36,
-        39,
-        174,
-        65,
-        228,
-        100,
-        155,
-        147,
-        76,
-        164,
-        149,
-        153,
-        27,
-        120,
-        82,
-        184,
-        85
-      ]
-    }
-  ],
+  "pool": [],
   "blocks": [
     {
       "height": 1,
@@ -262,6 +236,255 @@
           "proof": null
         }
       ]
+    },
+    {
+      "height": 2,
+      "transactions": [
+        {
+          "kind": {
+            "Transfer": {
+              "from": "test1",
+              "to": "test2",
+              "token": "proof",
+              "amount": 25
+            }
+          },
+          "rw_set": {
+            "reads": [],
+            "writes": []
+          },
+          "proof": [
+            227,
+            176,
+            196,
+            66,
+            152,
+            252,
+            28,
+            20,
+            154,
+            251,
+            244,
+            200,
+            153,
+            111,
+            185,
+            36,
+            39,
+            174,
+            65,
+            228,
+            100,
+            155,
+            147,
+            76,
+            164,
+            149,
+            153,
+            27,
+            120,
+            82,
+            184,
+            85
+          ]
+        }
+      ]
+    },
+    {
+      "height": 3,
+      "transactions": []
+    },
+    {
+      "height": 4,
+      "transactions": []
+    },
+    {
+      "height": 5,
+      "transactions": []
+    },
+    {
+      "height": 6,
+      "transactions": []
+    },
+    {
+      "height": 7,
+      "transactions": []
+    },
+    {
+      "height": 8,
+      "transactions": []
+    },
+    {
+      "height": 9,
+      "transactions": []
+    },
+    {
+      "height": 10,
+      "transactions": []
+    },
+    {
+      "height": 11,
+      "transactions": []
+    },
+    {
+      "height": 12,
+      "transactions": []
+    },
+    {
+      "height": 13,
+      "transactions": []
+    },
+    {
+      "height": 14,
+      "transactions": []
+    },
+    {
+      "height": 15,
+      "transactions": []
+    },
+    {
+      "height": 16,
+      "transactions": []
+    },
+    {
+      "height": 17,
+      "transactions": []
+    },
+    {
+      "height": 18,
+      "transactions": []
+    },
+    {
+      "height": 19,
+      "transactions": []
+    },
+    {
+      "height": 20,
+      "transactions": []
+    },
+    {
+      "height": 21,
+      "transactions": []
+    },
+    {
+      "height": 22,
+      "transactions": []
+    },
+    {
+      "height": 23,
+      "transactions": []
+    },
+    {
+      "height": 24,
+      "transactions": []
+    },
+    {
+      "height": 25,
+      "transactions": []
+    },
+    {
+      "height": 26,
+      "transactions": []
+    },
+    {
+      "height": 27,
+      "transactions": []
+    },
+    {
+      "height": 28,
+      "transactions": []
+    },
+    {
+      "height": 29,
+      "transactions": []
+    },
+    {
+      "height": 30,
+      "transactions": []
+    },
+    {
+      "height": 31,
+      "transactions": []
+    },
+    {
+      "height": 32,
+      "transactions": []
+    },
+    {
+      "height": 33,
+      "transactions": []
+    },
+    {
+      "height": 34,
+      "transactions": []
+    },
+    {
+      "height": 35,
+      "transactions": []
+    },
+    {
+      "height": 36,
+      "transactions": []
+    },
+    {
+      "height": 37,
+      "transactions": []
+    },
+    {
+      "height": 38,
+      "transactions": []
+    },
+    {
+      "height": 39,
+      "transactions": []
+    },
+    {
+      "height": 40,
+      "transactions": []
+    },
+    {
+      "height": 41,
+      "transactions": []
+    },
+    {
+      "height": 42,
+      "transactions": []
+    },
+    {
+      "height": 43,
+      "transactions": []
+    },
+    {
+      "height": 44,
+      "transactions": []
+    },
+    {
+      "height": 45,
+      "transactions": []
+    },
+    {
+      "height": 46,
+      "transactions": []
+    },
+    {
+      "height": 47,
+      "transactions": []
+    },
+    {
+      "height": 48,
+      "transactions": []
+    },
+    {
+      "height": 49,
+      "transactions": []
+    },
+    {
+      "height": 50,
+      "transactions": []
+    },
+    {
+      "height": 51,
+      "transactions": []
     }
   ],
   "capsules": {},

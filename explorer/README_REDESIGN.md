@@ -144,7 +144,7 @@ explorer/
 ```bash
 cd explorer
 cargo run
-# Server starts on http://localhost:4000
+# Server starts on http://192.168.29.78:4000
 ```
 
 ## Pages Included

@@ -367,7 +367,9 @@ PENDING → ANCHORED → VERIFIED → COMPLETE
 - **Burn Authority:** fortress_digital
 
 ### Network Configuration
-- **L1 Node:** localhost:50051 (gRPC)
+- **L1 Node REST:** 192.168.29.78:3000
+- **L1 Node gRPC:** 192.168.29.78:50051
+- **Explorer UI:** 192.168.29.78:4000
 - **Block Time:** ~1 second
 - **Consensus:** Orderingless consensus (QCT)
 - **Finality:** Instant (deterministic finality)
@@ -376,25 +378,41 @@ PENDING → ANCHORED → VERIFIED → COMPLETE
 
 ## API Endpoints Summary
 
-### Settlement APIs
+### Settlement & Anchoring APIs (REST — port 3000)
 ```
-POST   /demo/settlements              Create new demo settlement
-GET    /demo/settlements              List all settlements
-GET    /demo/settlements/{id}         Get settlement status
-POST   /demo/settlements/{id}/steps/{step}  Execute specific step
-POST   /demo/settlements/{id}/auto-execute  Execute all 8 steps
-DELETE /demo/settlements/{id}         Reset settlement
-```
-
-### Event APIs
-```
-GET    /demo/events                   Get real-time events
-GET    /demo/events?scenario_id={id}  Get events for specific settlement
+POST   /api/anchor_commitment          Anchor commitment hash from FortressDigital
+POST   /api/verify_proof               Verify STARK proof against anchored commitment
+GET    /api/commitment/{hash}          Query commitment by hash
+GET    /api/proof_status/{hash}        Query proof verification status
+GET    /api/events                     Compliance event stream
+GET    /api/stats                      Dashboard statistics
 ```
 
-### Dashboard APIs
+### Ledger & Token APIs
 ```
-GET    /demo/stats                    Get dashboard statistics
+POST   /account                        Create account
+POST   /mint                           Mint tokens
+POST   /transfer                       Transfer tokens
+GET    /balance/{account}/{token}      Query balance
+POST   /token/create                   Create token type
+GET    /tokens                         List tokens
+```
+
+### Settlement Bank Operations
+```
+POST   /settlement/mint                Settlement mint (approved banks only)
+POST   /settlement/redeem              Settlement redeem/burn
+POST   /settlement/transfer            Inter-bank settlement transfer
+POST   /bank/approve                   Register settlement bank
+POST   /bank/daily_limit              Set bank daily mint limit
+```
+
+### Explorer & Dashboard
+```
+GET    /blocks                         List blocks
+GET    /pool                           Node state snapshot
+GET    /capsule                        List deployed capsules
+POST   /capsule/{id}/invoke_wasm       Invoke WASM capsule
 ```
 
 ---
@@ -447,25 +465,37 @@ GET    /demo/stats                    Get dashboard statistics
 
 ---
 
-## Next Steps
+## Completed Phases
 
-### Phase 14: Testing & Validation
-- [ ] Comprehensive test suite
-- [ ] Load testing (1000 req/sec)
-- [ ] Security testing (replay, tampering)
-- [ ] End-to-end integration tests
+### Phase 14: Testing & Validation ✅
+- [x] Comprehensive test suite (E2E + unit)
+- [x] Load testing
+- [x] Security testing (replay, tampering)
+- [x] End-to-end integration tests
 
-### Phase 15: Documentation
-- [ ] API reference documentation
-- [ ] Integration guides (FortressDigital, ProofCortex)
-- [ ] Deployment documentation
-- [ ] Operator manual
+### Phase 15: Documentation ✅
+- [x] API reference documentation
+- [x] Integration guides (FortressDigital, ProofCortex, Treasury, Wallet)
+- [x] Deployment documentation & operations guide
+- [x] Capsule Developer Manual (400+ lines)
 
-### Phase 16: Demo Readiness
-- [ ] UI dashboard deployment
-- [ ] Sample data population
-- [ ] Demo script preparation
-- [ ] Presentation materials
+### Phase 16: Demo Readiness ✅
+- [x] Explorer UI with 11 tabs (including Capsule IDE)
+- [x] Sample data population
+- [x] Demo scripts and quick-start guide
+- [x] WASM capsule runtime (wasmtime)
+- [x] Settlement routes (mint/redeem/transfer) + bank admin API
+- [x] CortexCA TLS certificates for all services
+
+## Additional Capabilities (Post Phase 13)
+
+- **WASM Capsule Runtime:** Guest modules with host_mint/transfer/burn/balance/log/output
+- **Capsule IDE in Explorer:** WAT editor, example gallery, wabt.js compilation, invoke panel
+- **Bank Administration API:** `/bank/approve`, `/bank/daily_limit` for settlement banks
+- **Settlement Routes:** `/settlement/mint`, `/settlement/redeem`, `/settlement/transfer`
+- **FortressDigital AI/ML:** ONNX risk scorer, velocity tracking, LLM audit explanations (feature-flagged)
+- **PolicyAir STARK:** 13-column algebraic trace with degree-2 range-check constraints
+- **CortexCA PKI:** Self-signed CA with 7 service certificates
 
 ---
 
@@ -479,11 +509,10 @@ FlowCortex demonstrates **enterprise-grade treasury settlement** with:
 - ✅ FloweR stablecoin integration
 - ✅ Complete observability
 
-**Demo Status:** Ready for Phase 13 completion ✅
+**Demo Status:** All 16 phases complete ✅
 
 ---
 
 **Contact:**
 - **Project:** FlowCortex L1 Blockchain
-- **Demo Date:** February 23, 2026
-- **Phase:** 13 (Demo-Specific Features) - COMPLETE
+- **Phase:** 16/16 — ALL COMPLETE

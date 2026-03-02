@@ -129,21 +129,40 @@ C = H(user_id, device_trust, risk_score, policy_id, decision, txn_bucket, timest
 }
 ```
 
-### 6. What FlowCortex Must Demonstrate in Demo
+### 6. What FlowCortex Demonstrates in Demo
 
-**6.1 Anchoring Capability**
-- Immutable storage of commitments
-- Deterministic block inclusion
+**6.1 Anchoring Capability** ✅
+- Immutable storage of commitments via `POST /api/anchor_commitment`
+- Deterministic block inclusion with tx_hash and block_height
+- Idempotent anchoring (same commitment → same response)
 
-**6.2 Verifier Capsule Execution**
-- Accept proof submissions
-- Validate proof (mock or real STARK verifier)
-- Bind proof to anchored commitment
+**6.2 Verifier Capsule Execution** ✅
+- Native Rust verifier capsules (primary path via `POST /capsule/{id}/invoke`)
+- WASM capsule runtime via wasmtime (`POST /capsule/{id}/invoke_wasm`)
+- Capsule IDE in Explorer with WAT editor, example gallery, and wabt.js compilation
+- Host functions: `host_mint`, `host_transfer`, `host_burn`, `host_balance`, `host_log`, `host_output`
 
-**6.3 Event Emission**
-- CommitmentAnchored
-- ProofVerified
-- These events drive UI updates in demo
+**6.3 Proof Verification** ✅
+- Accept proof submissions via `POST /api/verify_proof`
+- Validate proof and bind to anchored commitment
+- Query status via `GET /api/proof_status/{hash}`
+
+**6.4 Event Emission** ✅
+- CommitmentAnchored, ProofVerified events
+- Event stream via `GET /api/events`
+- Dashboard stats via `GET /api/stats`
+
+**6.5 Settlement Operations** ✅
+- FloweR stablecoin (FLW, 1:1 INR peg, 6 decimals)
+- Settlement mint/redeem/transfer routes for approved banks
+- Bank administration (approve, daily mint limits)
+- Full token lifecycle: create, mint, transfer, burn
+
+**6.6 Integration Points** ✅
+- FortressDigital → FlowCortex: commitment anchoring via `FLOW_ANCHOR_MODE=http`
+- ProofCortex → FlowCortex: proof verification via `POST /api/verify_proof`
+- KeyCortex → FlowCortex: balance/transfer via HTTP client
+- Explorer → FlowCortex: all read endpoints (11-tab UI)
 
 ### 7. Demo UI Signals (What Audience Will See)
 
@@ -168,26 +187,33 @@ The demo must clearly show:
 
 Thus proving: **No hidden override, no tampering, no blind trust.**
 
-### 9. Minimal MVP Expectations for FlowCortex Team
+### 9. Delivered MVP Capabilities
 
-For demo success, FlowCortex must provide:
+All capabilities required for demo are implemented and working:
 
-- Commitment anchoring endpoint
-- Verifier Capsule skeleton
-- Proof submission endpoint
-- Event emission hooks
-- Query APIs for UI dashboards
-- Mock proof verification acceptable initially
+- ✅ Commitment anchoring endpoint (`POST /api/anchor_commitment`)
+- ✅ Verifier capsule runtime (native Rust + WASM/wasmtime)
+- ✅ Proof submission and verification (`POST /api/verify_proof`)
+- ✅ Deterministic event emission (`GET /api/events`)
+- ✅ Query APIs for commitment & verification status
+- ✅ FloweR stablecoin with full token lifecycle
+- ✅ Settlement routes (mint/redeem/transfer) for approved banks
+- ✅ Bank administration API
+- ✅ Explorer UI with 11 tabs including Capsule IDE
+- ✅ gRPC services (6 total: Ledger, BlockProducer, TxPool, Token, CommitmentAnchor, ProofVerifier)
+- ✅ REST API (29 routes on port 3000)
+- ✅ E2E test suite and demo scenarios
 
-### 10. Final Summary for FlowCortex Team
+### 10. Summary
 
 In this demo, FlowCortex serves as:
 
 **The immutable trust anchor and deterministic verifier execution layer that records FortressDigital authorization commitments and validates ProofCortex STARK proofs, ultimately enabling provably compliant enterprise stablecoin settlement.**
 
-This context should guide capsule design, API shape, and event semantics required for the demo.
+All capabilities described in this document are implemented and integrated with FortressDigital, ProofCortex, KeyCortex, and TreasurySettlement.
 
 ---
 
-**Document Created:** February 23, 2026  
-**Demo Context Version:** 1.0
+**Document Created:** February 23, 2026
+**Last Updated:** March 1, 2026
+**Demo Context Version:** 2.0 — All capabilities delivered

@@ -110,13 +110,13 @@ async function updateApiBase() {
 
 ✅ **Inline apiCall() now uses dynamic API_BASE**
 ```bash
-curl -s http://localhost:4000 | grep "window.API_BASE"
+curl -s http://192.168.29.78:4000 | grep "window.API_BASE"
 # Output shows: const base = (window.API_BASE || API_BASE_INLINE)...
 ```
 
 ✅ **setApiBase() function is available**
 ```bash
-curl -s http://localhost:4000 | grep "window.setApiBase"
+curl -s http://192.168.29.78:4000 | grep "window.setApiBase"
 # Output shows the function definition
 ```
 
@@ -152,7 +152,7 @@ curl -s http://localhost:4000 | grep "window.setApiBase"
 
 ### Manual Test Scenario 1: Local Setup
 ```
-1. Open Explorer at http://localhost:4000
+1. Open Explorer at http://192.168.29.78:4000
 2. Click "API Config" button
 3. Change endpoint to http://127.0.0.1:3000 (or another valid L1 node)
 4. Click "Save"
@@ -164,7 +164,7 @@ curl -s http://localhost:4000 | grep "window.setApiBase"
 
 ### Manual Test Scenario 2: Switch Between Multiple APIs
 ```
-1. Configure API to: http://localhost:3000
+1. Configure API to: http://192.168.29.78:3000
 2. Dashboard loads successfully with blocks
 3. Click "API Config"
 4. Change to: http://192.168.1.100:3000 (different node)

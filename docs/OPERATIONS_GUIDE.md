@@ -26,8 +26,8 @@ cargo run
 ```
 
 Access:
-- API: http://localhost:3000
-- Explorer: http://localhost:8080
+- API: http://192.168.29.78:3000
+- Explorer: http://192.168.29.78:8080
 
 ---
 
@@ -78,7 +78,7 @@ cargo build --release
 ### Health Check
 
 ```bash
-curl http://localhost:3000/health
+curl http://192.168.29.78:3000/health
 
 # Expected response:
 # {"status": "healthy", "block_height": 12345}
@@ -100,7 +100,7 @@ Available at `/metrics`:
 
 ```bash
 # Backup ledger state
-curl -X POST http://localhost:3000/admin/snapshot \
+curl -X POST http://192.168.29.78:3000/admin/snapshot \
   -H "Authorization: Bearer ADMIN_KEY"
 
 # Saved to: /var/lib/flowcortex/snapshots/snapshot_TIMESTAMP.json
@@ -133,7 +133,7 @@ systemctl restart flowcortex-l1
 **Issue: High latency**
 ```bash
 # Check current load
-curl http://localhost:3000/metrics | grep latency
+curl http://192.168.29.78:3000/metrics | grep latency
 
 # Increase rate limits in config
 ```
@@ -141,10 +141,10 @@ curl http://localhost:3000/metrics | grep latency
 **Issue: Verification failures**
 ```bash
 # Check capsule registry
-curl http://localhost:3000/admin/capsules
+curl http://192.168.29.78:3000/admin/capsules
 
 # Verify capsule version
-curl http://localhost:3000/admin/capsules/verifier_v1
+curl http://192.168.29.78:3000/admin/capsules/verifier_v1
 ```
 
 ---
@@ -175,11 +175,11 @@ query_cache_ttl = 300  # seconds
 
 ```bash
 # Generate new key
-curl -X POST http://localhost:3000/admin/keys/generate \
+curl -X POST http://192.168.29.78:3000/admin/keys/generate \
   -H "Authorization: Bearer ADMIN_KEY"
 
 # Revoke old key
-curl -X DELETE http://localhost:3000/admin/keys/{key_id} \
+curl -X DELETE http://192.168.29.78:3000/admin/keys/{key_id} \
   -H "Authorization: Bearer ADMIN_KEY"
 ```
 

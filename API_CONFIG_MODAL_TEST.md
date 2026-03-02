@@ -81,13 +81,13 @@ This ensures:
 
 ✅ **HTML Structure Verified**
 ```bash
-curl -s http://localhost:4000 | grep -A 3 'id="apiConfigModal"'
+curl -s http://192.168.29.78:4000 | grep -A 3 'id="apiConfigModal"'
 # Output shows properly formatted HTML with correct quotes
 ```
 
 ✅ **Button Structure Verified**  
 ```bash
-curl -s http://localhost:4000 | grep 'API Config'
+curl -s http://192.168.29.78:4000 | grep 'API Config'
 # Output shows button with onclick="showModal('apiConfigModal')"
 ```
 
@@ -105,7 +105,7 @@ curl -s http://localhost:4000 | grep 'API Config'
 
 ### 2. Configure API Endpoint
 - Enter the FlowCortex L1 node URL in the input field
-- Example: `http://localhost:3000` or `http://192.168.1.100:3000`
+- Example: `http://192.168.29.78:3000` or `http://192.168.1.100:3000`
 
 ### 3. Save Configuration
 - Click **"Save"** button to apply the configuration
@@ -135,7 +135,7 @@ curl -s http://localhost:4000 | grep 'API Config'
 ## Testing the Fix
 
 ### Manual Test
-1. Visit: http://localhost:4000
+1. Visit: http://192.168.29.78:4000
 2. Click "API Config" button in sidebar footer
 3. Verify modal appears centered on screen
 4. Enter a new API endpoint

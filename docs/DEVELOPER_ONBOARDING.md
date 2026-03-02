@@ -75,7 +75,7 @@ cargo run
 
 ```bash
 # Terminal 2: Anchor a commitment
-curl -X POST http://localhost:3000/api/anchor_commitment \
+curl -X POST http://192.168.29.78:3000/api/anchor_commitment \
   -H "Content-Type: application/json" \
   -d '{
     "commitment_hash": "a1b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef",
@@ -88,7 +88,7 @@ curl -X POST http://localhost:3000/api/anchor_commitment \
 # {"success":true,"block_height":1,"tx_hash":"txn_000..."}
 
 # Verify a proof
-curl -X POST http://localhost:3000/api/verify_proof \
+curl -X POST http://192.168.29.78:3000/api/verify_proof \
   -H "Content-Type: application/json" \
   -d '{
     "commitment_hash": "a1b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef",
@@ -99,7 +99,7 @@ curl -X POST http://localhost:3000/api/verify_proof \
   }'
 
 # Query status
-curl http://localhost:3000/api/proof_status/a1b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef
+curl http://192.168.29.78:3000/api/proof_status/a1b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef
 ```
 
 ### 4. Explore Code (5 min)

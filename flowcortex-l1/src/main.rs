@@ -1,3 +1,4 @@
+use flowcortex_l1::chain_params;
 use flowcortex_l1::consensus::start_block_producer;
 use flowcortex_l1::node::Node;
 use flowcortex_l1::rpc::make_router;
@@ -26,14 +27,24 @@ async fn main() {
         n
     };
 
-    // start minimal block producer that cuts a block every 5 seconds
-    let _producer_handle = start_block_producer(node.clone(), Duration::from_secs(5));
+    // Block production interval: default from chain_params, override via BLOCK_INTERVAL_MS env var.
+    let block_interval_ms = std::env::var("BLOCK_INTERVAL_MS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(chain_params::BLOCK_INTERVAL_MS);
+    println!(
+        "chain_id={} protocol={} block_interval={}ms",
+        chain_params::CHAIN_ID_NUMERIC,
+        chain_params::PROTOCOL_VERSION,
+        block_interval_ms
+    );
+    let _producer_handle = start_block_producer(node.clone(), Duration::from_millis(block_interval_ms));
 
     let app = make_router(node.clone());
 
     // also start gRPC server on separate port (default 50051)
     let grpc_addr: std::net::SocketAddr = std::env::var("GRPC_ADDR")
-        .unwrap_or_else(|_| "0.0.0.0:50051".to_string())
+        .unwrap_or_else(|_| "0.0.0.0:50051".to_string()) // chain_params::DEFAULT_GRPC_ENDPOINT port
         .parse()
         .expect("invalid GRPC_ADDR");
     let grpc_node = node.clone();
@@ -46,7 +57,7 @@ async fn main() {
 
     println!("L1 node running with admin='{}'", admin);
     // determine bind address (allow override via BIND_ADDR env var)
-    let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3000".to_string());
+    let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:8082".to_string()); // chain_params::DEFAULT_HTTP_ENDPOINT port
     println!("binding L1 node on {}", bind_addr);
     let listener = tokio::net::TcpListener::bind(&bind_addr)
         .await

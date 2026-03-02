@@ -213,20 +213,20 @@ Subtasks Complete: 164/178 (92%)
 
 ```bash
 # Create settlement
-curl -X POST http://localhost:50051/demo/settlements \
+curl -X POST http://192.168.29.78:50051/demo/settlements \
   -d '{"scenario_id": "demo_001", "amount": 5000000000}'
 
 # Execute all steps
-curl -X POST http://localhost:50051/demo/settlements/demo_001/auto-execute
+curl -X POST http://192.168.29.78:50051/demo/settlements/demo_001/auto-execute
 
 # Check status
-curl http://localhost:50051/demo/settlements/demo_001
+curl http://192.168.29.78:50051/demo/settlements/demo_001
 
 # View events
-curl http://localhost:50051/demo/events
+curl http://192.168.29.78:50051/demo/events
 
 # Get stats
-curl http://localhost:50051/demo/stats
+curl http://192.168.29.78:50051/demo/stats
 ```
 
 ---

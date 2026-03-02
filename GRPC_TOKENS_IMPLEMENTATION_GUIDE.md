@@ -532,7 +532,7 @@ print(f"Confirmed at block {response.block_height}")
 import requests
 
 response = requests.post(
-    'http://localhost:3000/settlement/transfer',
+    'http://192.168.29.78:3000/settlement/transfer',
     json={...}
 )
 data = response.json()
@@ -577,7 +577,7 @@ let server = Server::builder()
 
 ```bash
 # REST → gRPC transcoding
-curl -X POST http://localhost:50051/l1.Tokens/CreateToken \
+curl -X POST http://192.168.29.78:50051/l1.Tokens/CreateToken \
   -H "Content-Type: application/json" \
   -d '{
     "symbol": "FLOWER",
@@ -685,7 +685,7 @@ mod tests {
 ```bash
 # Use grpcurl to test endpoints
 grpcurl -plaintext -d '{"symbol":"FLOWER",...}' \
-  localhost:50051 l1.Tokens/CreateToken
+  192.168.29.78:50051 l1.Tokens/CreateToken
 
 # Use tonic test client
 #[tokio::test]
@@ -703,7 +703,7 @@ ghz --insecure \
   -d @ \
   -c 100 \
   -n 1000 \
-  localhost:50051
+  192.168.29.78:50051
 ```
 
 ---
@@ -852,7 +852,7 @@ grpcurl -plaintext -d '{
   "name": "Flow Dollar",
   "decimals": 6,
   "initial_supply": 1000000000
-}' localhost:50051 l1.Tokens/CreateToken
+}' 192.168.29.78:50051 l1.Tokens/CreateToken
 ```
 
 ### 4. Result
