@@ -23,6 +23,28 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+.module-logo {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+}
+
+.proof-mini-logo {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+}
+
+.token-logo {
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    object-fit: contain;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    padding: 2px;
+}
+
 /* Sidebar */
 .sidebar {
     transition: transform 0.3s ease-in-out;

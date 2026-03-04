@@ -568,14 +568,23 @@ async function listTokens() {
             if (!tokens.length) {
                 list.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">No tokens found</p>';
             } else {
+                const tokenLogo = (symbol) => {
+                    const key = (symbol || '').toString().trim().toUpperCase();
+                    if (key === 'FLOWER' || key === 'FLOWER'.toUpperCase()) return '/static/img/flower_logo.png';
+                    if (key === 'PROOF') return '/static/img/proof_logo.png';
+                    return '';
+                };
                 list.innerHTML = `
                     <div class="grid grid-cols-1 gap-3">
                         ${tokens.map(token => `
                             <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                 <div class="flex justify-between items-center">
-                                    <div>
+                                    <div class="flex items-center gap-2">
+                                        ${tokenLogo(token.symbol) ? `<img src="${tokenLogo(token.symbol)}" alt="${token.symbol || 'token'}" class="token-logo" />` : ''}
+                                        <div>
                                         <p class="font-semibold">${token.symbol || token.name || 'Token'}</p>
                                         <p class="text-xs text-gray-500 dark:text-gray-400">${token.name || ''}</p>
+                                        </div>
                                     </div>
                                     <div class="text-right text-xs text-gray-500 dark:text-gray-400">
                                         <div>Supply: ${token.total_supply ?? '-'}</div>

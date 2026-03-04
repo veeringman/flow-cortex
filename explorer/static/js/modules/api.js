@@ -4,17 +4,27 @@
  * Configuration:
  * - Set window.API_BASE to override default
  * - Or set via data-api-base attribute on <body>
- * - Defaults to http://127.0.0.1:3000
+ * - Defaults to https://<current-hostname>:3000
  */
 
 // Determine API base URL (configurable)
+// FlowCortex L1 always serves HTTPS; derive host from current page URL
 let API_BASE = window.API_BASE || 
                document.body.getAttribute('data-api-base') || 
-               'http://127.0.0.1:3000';
+               `https://${window.location.hostname}:3000`;
+
+const apiBaseEl = document.getElementById('api-base-url');
+if (apiBaseEl) {
+    apiBaseEl.textContent = API_BASE;
+}
 
 // Allow dynamic configuration
 window.setApiBase = (url) => {
     API_BASE = url;
+    const el = document.getElementById('api-base-url');
+    if (el) {
+        el.textContent = API_BASE;
+    }
     console.log(`📡 API Base URL changed to: ${API_BASE}`);
 };
 

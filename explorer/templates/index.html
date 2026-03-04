@@ -312,7 +312,7 @@
                     <i class="fas fa-cog mr-2"></i>API Config
                 </button>
                 <div class="text-xs text-gray-500 dark:text-gray-400 p-2 bg-gray-100 dark:bg-gray-700 rounded">
-                    <p><strong>API:</strong> <span id="api-endpoint">http://127.0.0.1:3000</span></p>
+                    <p><strong>API:</strong> <span id="api-endpoint">Detecting...</span></p>
                     <p id="status" class="mt-1"><span class="loading"></span> Connecting...</p>
                 </div>
             </div>
@@ -1017,7 +1017,7 @@
         // ===== Configuration =====
         // Use dynamic API_BASE from window (updated by modules)
         // This will be set by the API module or updateApiBase() function
-        const API_BASE_INLINE = window.API_BASE || 'http://127.0.0.1:3000';
+        const API_BASE_INLINE = window.API_BASE || `https://${window.location.hostname}:3000`;
         let currentTab = 'dashboard';
         let currentWallet = null;
 

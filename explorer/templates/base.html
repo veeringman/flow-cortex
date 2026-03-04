@@ -17,10 +17,15 @@
         <aside class="sidebar w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
             <!-- Logo Section -->
             <div class="p-6 border-b border-gray-200 dark:border-gray-700">
-                <h1 class="text-2xl font-bold text-blue-600">
-                    <i class="fas fa-cube mr-2"></i>FlowCortex
+                <h1 class="text-2xl font-bold text-blue-600 flex items-center gap-2">
+                    <img src="/static/img/flowcortex.png" alt="FlowCortex" class="module-logo" />
+                    <span>FlowCortex</span>
                 </h1>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Blockchain Explorer</p>
+                <div class="mt-2 flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+                    <img src="/static/img/proofcortex.png" alt="ProofCortex" class="proof-mini-logo" />
+                    <span>ProofCortex Anchoring Enabled</span>
+                </div>
             </div>
 
             <!-- Navigation -->
@@ -34,7 +39,7 @@
                     <i class="fas fa-moon mr-2" id="theme-icon"></i><span id="theme-text">Dark Mode</span>
                 </button>
                 <div class="text-xs text-gray-500 dark:text-gray-400 p-2 bg-gray-100 dark:bg-gray-700 rounded">
-                    <p><strong>API:</strong> http://127.0.0.1:3000</p>
+                    <p><strong>API:</strong> <span id="api-base-url">Detecting...</span></p>
                     <p id="network-status" class="mt-1"><span class="loading"></span> Connecting...</p>
                 </div>
             </div>

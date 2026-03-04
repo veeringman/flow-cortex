@@ -58,11 +58,39 @@ async fn main() {
     println!("L1 node running with admin='{}'", admin);
     // determine bind address (allow override via BIND_ADDR env var)
     let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:8082".to_string()); // chain_params::DEFAULT_HTTP_ENDPOINT port
-    println!("binding L1 node on {}", bind_addr);
-    let listener = tokio::net::TcpListener::bind(&bind_addr)
-        .await
-        .unwrap();
-    axum::serve(listener, app)
-        .await
-        .unwrap();
+    let tls_enabled = matches!(
+        std::env::var("TLS_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .to_ascii_lowercase()
+            .as_str(),
+        "1" | "true" | "yes" | "on"
+    );
+
+    if tls_enabled {
+        rustls::crypto::ring::default_provider().install_default()
+            .expect("install rustls ring CryptoProvider");
+        let cert_path = std::env::var("TLS_CERT_PATH")
+            .unwrap_or_else(|_| "../../certs/flowcortex/flowcortex.crt".to_string());
+        let key_path = std::env::var("TLS_KEY_PATH")
+            .unwrap_or_else(|_| "../../certs/flowcortex/flowcortex.key".to_string());
+        println!(
+            "binding L1 node with HTTPS on {} (cert={}, key={})",
+            bind_addr, cert_path, key_path
+        );
+        let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(cert_path, key_path)
+            .await
+            .unwrap();
+        axum_server::bind_rustls(bind_addr.parse().unwrap(), tls_config)
+            .serve(app.into_make_service())
+            .await
+            .unwrap();
+    } else {
+        println!("binding L1 node on {}", bind_addr);
+        let listener = tokio::net::TcpListener::bind(&bind_addr)
+            .await
+            .unwrap();
+        axum::serve(listener, app)
+            .await
+            .unwrap();
+    }
 }
