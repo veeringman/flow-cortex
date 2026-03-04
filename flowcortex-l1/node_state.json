@@ -16,17 +16,6 @@
     },
     "admin": "admin",
     "tokens": {
-      "usdx": {
-        "symbol": "usdx",
-        "name": "Demo USD Stablecoin",
-        "decimals": 6,
-        "total_supply": 1000000,
-        "creator": "admin",
-        "token_type": "stablecoin",
-        "status": "active",
-        "created_at": 0,
-        "metadata": "{\"issuer\":\"demo-treasury\",\"description\":\"Demo stablecoin for settlement\"}"
-      },
       "flower": {
         "symbol": "flower",
         "name": "Flow Dollar",
@@ -48,6 +37,17 @@
         "status": "active",
         "created_at": 0,
         "metadata": null
+      },
+      "usdx": {
+        "symbol": "usdx",
+        "name": "Demo USD Stablecoin",
+        "decimals": 6,
+        "total_supply": 1000000,
+        "creator": "admin",
+        "token_type": "stablecoin",
+        "status": "active",
+        "created_at": 0,
+        "metadata": "{\"issuer\":\"demo-treasury\",\"description\":\"Demo stablecoin for settlement\"}"
       }
     },
     "token_events": [
@@ -484,6 +484,26 @@
     },
     {
       "height": 51,
+      "transactions": []
+    },
+    {
+      "height": 52,
+      "transactions": []
+    },
+    {
+      "height": 53,
+      "transactions": []
+    },
+    {
+      "height": 54,
+      "transactions": []
+    },
+    {
+      "height": 55,
+      "transactions": []
+    },
+    {
+      "height": 56,
       "transactions": []
     }
   ],
