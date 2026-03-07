@@ -1118,6 +1118,13 @@ pub fn make_router(node: SharedNode) -> Router {
         .route("/api/proof_status/{hash}", get(query_proof_status))
         .route("/api/events", get(list_events))
         .route("/api/stats", get(dashboard_stats))
+        // root-level aliases (used by Explorer proxy)
+        .route("/anchor_commitment", post(anchor_commitment))
+        .route("/verify_proof", post(verify_proof))
+        .route("/commitment/{hash}", get(query_commitment))
+        .route("/proof_status/{hash}", get(query_proof_status))
+        .route("/events", get(list_events))
+        .route("/stats", get(dashboard_stats))
         .layer(middleware::from_fn(cors))
         .layer(Extension(node))
 }

@@ -32,8 +32,13 @@ const state = {
 async function init() {
     console.log('🚀 Initializing FlowCortex Explorer...');
     
-    // Load saved API base from localStorage
-    const savedApiBase = localStorage.getItem('apiBase');
+    // Load saved API base from localStorage — migrate stale external URLs to /api proxy
+    let savedApiBase = localStorage.getItem('apiBase');
+    // Clear stale external URLs that pointed to L1 directly (causes cert issues)
+    if (savedApiBase && /^https?:\/\//.test(savedApiBase)) {
+        localStorage.removeItem('apiBase');
+        savedApiBase = null;
+    }
     if (savedApiBase) {
         window.setApiBase(savedApiBase);
         const endpoint = document.getElementById('api-endpoint');
@@ -140,23 +145,26 @@ async function updateApiBase() {
         return;
     }
     
+    // Enforce HTTPS
+    const safeUrl = newUrl.replace(/^http:\/\//, 'https://');
+    
     // Update the API base
-    window.setApiBase(newUrl);
+    window.setApiBase(safeUrl);
     
     // Update the display
     const endpoint = document.getElementById('api-endpoint');
     if (endpoint) {
-        endpoint.textContent = newUrl;
+        endpoint.textContent = safeUrl;
     }
     
     // Save to localStorage
-    localStorage.setItem('apiBase', newUrl);
+    localStorage.setItem('apiBase', safeUrl);
     
     // Close modal and show success
     UI.closeModal('apiConfigModal');
-    UI.showToast('success', `API configured: ${newUrl}`);
+    UI.showToast('success', `API configured: ${safeUrl}`);
     
-    console.log(`✅ API Base updated to: ${newUrl}`);
+    console.log(`✅ API Base updated to: ${safeUrl}`);
     
     // Reload dashboard data with new API endpoint
     await loadDashboard();

@@ -232,11 +232,8 @@
         <!-- Sidebar -->
         <aside class="sidebar w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
             <!-- Logo -->
-            <div class="p-6 border-b border-gray-200 dark:border-gray-700">
-                <h1 class="text-2xl font-bold text-blue-600">
-                    <i class="fas fa-cube mr-2"></i>FlowCortex
-                </h1>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Blockchain Explorer</p>
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-center">
+                <img src="/static/img/flowcortex.png" alt="FlowCortex" class="h-20 w-auto" style="background:transparent;">
             </div>
 
             <!-- Navigation -->
@@ -1015,9 +1012,8 @@
 
     <script>
         // ===== Configuration =====
-        // Use dynamic API_BASE from window (updated by modules)
-        // This will be set by the API module or updateApiBase() function
-        const API_BASE_INLINE = window.API_BASE || `https://${window.location.hostname}:3000`;
+        // Use same-origin /api proxy by default (avoids cross-origin self-signed cert issues)
+        const API_BASE_INLINE = window.API_BASE || '/api';
         let currentTab = 'dashboard';
         let currentWallet = null;
 
@@ -1643,7 +1639,7 @@
             };
             if (contextRef) body.context_ref = contextRef;
 
-            const data = await apiCall('/api/v1/commitments/anchor', {
+            const data = await apiCall('/anchor_commitment', {
                 method: 'POST',
                 body: JSON.stringify(body)
             });
@@ -1656,12 +1652,12 @@
                 displayOutput('commit-query-output', { error: 'Enter a commitment hash to query.' });
                 return;
             }
-            const data = await apiCall(`/api/v1/commitments/${encodeURIComponent(hash)}`);
+            const data = await apiCall(`/commitment/${encodeURIComponent(hash)}`);
             displayOutput('commit-query-output', data);
         }
 
         async function loadCommitmentStats() {
-            const data = await apiCall('/api/v1/dashboard/stats');
+            const data = await apiCall('/stats');
             if (data && !data.error) {
                 document.getElementById('stat-total-commitments').textContent = data.total_commitments ?? '-';
                 document.getElementById('stat-verified-proofs').textContent = data.verified_proofs ?? '-';
@@ -1694,7 +1690,7 @@
             };
             if (capsuleVer) body.capsule_version = capsuleVer;
 
-            const data = await apiCall('/api/v1/proofs/verify', {
+            const data = await apiCall('/verify_proof', {
                 method: 'POST',
                 body: JSON.stringify(body)
             });
@@ -1707,7 +1703,7 @@
                 displayOutput('proof-status-output', { error: 'Enter a commitment hash to check proof status.' });
                 return;
             }
-            const data = await apiCall(`/api/v1/proofs/${encodeURIComponent(hash)}/status`);
+            const data = await apiCall(`/proof_status/${encodeURIComponent(hash)}`);
 
             // Rich display
             const el = document.getElementById('proof-status-output');
@@ -1736,7 +1732,7 @@
             const filterHash = document.getElementById('events-filter-hash').value.trim();
             const limit = document.getElementById('events-limit').value;
 
-            let endpoint = `/api/v1/events?limit=${limit}`;
+            let endpoint = `/events?limit=${limit}`;
             if (filterHash) endpoint += `&commitment_hash=${encodeURIComponent(filterHash)}`;
 
             const data = await apiCall(endpoint);
@@ -2011,7 +2007,7 @@
         // ===== Status Indicator =====
         async function updateStatus() {
             try {
-                await fetch(`${API_BASE}/blocks`);
+                await fetch(`${window.API_BASE || API_BASE_INLINE}/blocks`);
                 document.getElementById('status').innerHTML = '<span class="status-badge success"><i class="fas fa-check-circle mr-1"></i> Connected</span>';
             } catch {
                 document.getElementById('status').innerHTML = '<span class="status-badge error"><i class="fas fa-exclamation-circle mr-1"></i> Offline</span>';
@@ -2262,26 +2258,33 @@
                 return;
             }
 
+            // Enforce HTTPS
+            const safeUrl = newUrl.replace(/^http:\/\//, 'https://');
             // Test the connection
-            fetch(`${newUrl}/blocks`)
+            fetch(`${safeUrl}/blocks`)
                 .then(() => {
                     // Update global API base
-                    window.API_BASE = newUrl;
-                    document.getElementById('api-endpoint').textContent = newUrl;
-                    localStorage.setItem('apiBase', newUrl);
-                    alert('API configured: ' + newUrl);
+                    window.API_BASE = safeUrl;
+                    document.getElementById('api-endpoint').textContent = safeUrl;
+                    localStorage.setItem('apiBase', safeUrl);
+                    alert('API configured: ' + safeUrl);
                     closeModal('apiConfigModal');
                     // Reload data with new API
                     refreshAll();
                 })
                 .catch(() => {
-                    alert('Failed to connect to API at ' + newUrl);
+                    alert('Failed to connect to API at ' + safeUrl);
                 });
         }
 
-        // Load saved API config
+        // Load saved API config — migrate stale external URLs to /api proxy
         window.addEventListener('DOMContentLoaded', () => {
-            const savedApiBase = localStorage.getItem('apiBase');
+            let savedApiBase = localStorage.getItem('apiBase');
+            // Clear stale external URLs that pointed to L1 directly (causes cert issues)
+            if (savedApiBase && /^https?:\/\//.test(savedApiBase)) {
+                localStorage.removeItem('apiBase');
+                savedApiBase = null;
+            }
             if (savedApiBase) {
                 window.API_BASE = savedApiBase;
                 document.getElementById('api-endpoint').textContent = savedApiBase;
@@ -2310,7 +2313,7 @@
                     type="text"
                     id="apiBaseInput"
                     class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    placeholder="http://127.0.0.1:3000"
+                    placeholder="/api"
                     />
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Enter the base URL of your FlowCortex L1 node</p>
             </div>

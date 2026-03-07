@@ -2,16 +2,16 @@
  * API Module - Handles all HTTP communication with FlowCortex L1 node
  * 
  * Configuration:
- * - Set window.API_BASE to override default
+ * - Uses same-origin /api proxy by default (avoids cross-origin cert issues)
+ * - Set window.API_BASE to override
  * - Or set via data-api-base attribute on <body>
- * - Defaults to https://<current-hostname>:3000
  */
 
 // Determine API base URL (configurable)
-// FlowCortex L1 always serves HTTPS; derive host from current page URL
+// Default: same-origin /api proxy served by Explorer
 let API_BASE = window.API_BASE || 
                document.body.getAttribute('data-api-base') || 
-               `https://${window.location.hostname}:3000`;
+               '/api';
 
 const apiBaseEl = document.getElementById('api-base-url');
 if (apiBaseEl) {
