@@ -581,7 +581,7 @@ curl -X POST http://192.168.29.78:50051/l1.Tokens/CreateToken \
   -H "Content-Type: application/json" \
   -d '{
     "symbol": "FLOWER",
-    "name": "Flow Dollar",
+    "name": "Flow Rupee",
     "decimals": 6,
     "initial_supply": 1000000000
   }'
@@ -668,7 +668,7 @@ mod tests {
         
         let req = Request::new(CreateTokenRequest {
             symbol: "FLOWER".into(),
-            name: "Flow Dollar".into(),
+            name: "Flow Rupee".into(),
             decimals: 6,
             initial_supply: 1_000_000_000,
             token_type: "Stablecoin".into(),
@@ -849,7 +849,7 @@ async fn create_token(&self, req: Request<CreateTokenRequest>) -> Result<...> {
 ```bash
 grpcurl -plaintext -d '{
   "symbol": "FLOWER",
-  "name": "Flow Dollar",
+  "name": "Flow Rupee",
   "decimals": 6,
   "initial_supply": 1000000000
 }' 192.168.29.78:50051 l1.Tokens/CreateToken

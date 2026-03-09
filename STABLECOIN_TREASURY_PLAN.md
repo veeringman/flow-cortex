@@ -79,7 +79,7 @@ This plan enables banks to mint, manage, and transfer stablecoins (like FloweR) 
 ```rust
 pub struct TokenMetadata {
     pub symbol: String,           // "FLOWER", "USDC", "USDT"
-    pub name: String,             // "Flow Dollar", "USD Coin"
+    pub name: String,             // "Flow Rupee", "USD Coin"
     pub decimals: u8,             // 6 for stablecoins
     pub total_supply: u64,        // Total minted
     pub creator: AccountId,       // Treasury platform
@@ -219,12 +219,12 @@ POST   /token/{symbol}/unfreeze
 POST /token/create
 {
   "symbol": "FLOWER",
-  "name": "Flow Dollar",
+  "name": "Flow Rupee",
   "decimals": 6,
   "initial_supply": 1000000000000,  // 1B tokens
   "token_type": "Stablecoin",
   "metadata": {
-    "backing": "1:1 USD reserve at Treasury",
+    "backing": "1:1 INR reserve at Treasury",
     "issuer": "FTC Treasury",
     "collateral_type": "USD",
     "redemption_rate": "1.0"
@@ -238,15 +238,15 @@ GET /tokens
 [
   {
     "symbol": "PROOF",
-    "name": "Proof Token",
+    "name": "PROOF",
     "decimals": 0,
-    "total_supply": 500000,
+    "total_supply": 20000000000,
     "token_type": "Native",
     "status": "Active"
   },
   {
     "symbol": "FLOWER",
-    "name": "Flow Dollar",
+    "name": "Flow Rupee",
     "decimals": 6,
     "total_supply": 1000000000000,
     "token_type": "Stablecoin",
@@ -260,7 +260,7 @@ GET /tokens
 GET /token/FLOWER
 {
   "symbol": "FLOWER",
-  "name": "Flow Dollar",
+  "name": "Flow Rupee",
   "decimals": 6,
   "total_supply": 1000000000000,
   "creator": "treasury-admin",

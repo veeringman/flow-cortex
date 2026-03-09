@@ -447,13 +447,14 @@ impl Ledger {
         };
         
         // Initialize built-in tokens
+        // PROOF — native coin of FlowCortex Network, minted once at TGE (20 billion, 6 decimals)
         ledger.tokens.insert(
             "proof".to_string(),
             TokenMetadata {
                 symbol: "proof".to_string(),
-                name: "Proof Token".to_string(),
-                decimals: 0,
-                total_supply: 0,
+                name: "PROOF".to_string(),
+                decimals: 6,
+                total_supply: 20_000_000_000,
                 creator: admin.clone(),
                 token_type: TokenType::Native,
                 status: TokenStatus::Active,
@@ -466,7 +467,7 @@ impl Ledger {
             "flower".to_string(),
             TokenMetadata {
                 symbol: "flower".to_string(),
-                name: "Flow Dollar".to_string(),
+                name: "Flow Rupee".to_string(),
                 decimals: 6,
                 total_supply: 0,
                 creator: admin,
@@ -507,6 +508,14 @@ impl Ledger {
             .and_then(|m| m.get(token))
             .cloned()
             .unwrap_or(0)
+    }
+
+    /// Return all token balances for a specific account.
+    pub fn get_all_balances(&self, acct: &AccountId) -> Vec<(String, u64)> {
+        self.balances
+            .get(acct)
+            .map(|m| m.iter().map(|(t, &a)| (t.clone(), a)).collect())
+            .unwrap_or_default()
     }
 
     /// Return a snapshot of all balances (account → token → amount).

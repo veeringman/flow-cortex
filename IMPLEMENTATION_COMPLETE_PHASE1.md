@@ -99,7 +99,7 @@ pub enum TokenStatus {
 ```rust
 pub struct TokenMetadata {
     pub symbol: String,        // "FLOWER", "PROOF"
-    pub name: String,          // "Flow Dollar"
+    pub name: String,          // "Flow Rupee"
     pub decimals: u8,          // 6 for stablecoins
     pub total_supply: u64,
     pub creator: AccountId,    // Treasury/issuer
@@ -321,7 +321,7 @@ Bank A → (Burn 100K FLOWER) → Total supply: -100K
 ### Token Support
 Dynamic token creation is designed:
 ```
-CreateToken("FLOWER", "Flow Dollar", 6, 1000000000, Stablecoin, {...})
+CreateToken("FLOWER", "Flow Rupee", 6, 1000000000, Stablecoin, {...})
 CreateToken("USDC", "USD Coin", 6, ..., Stablecoin, {...})
 CreateToken("USDT", "Tether", 6, ..., Stablecoin, {...})
 ```

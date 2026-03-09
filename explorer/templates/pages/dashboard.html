@@ -44,10 +44,11 @@
     <div class="card p-4">
         <div class="flex justify-between items-start">
             <div>
-                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Capsules</p>
-                <p class="text-3xl font-bold mt-1" id="stat-capsules">-</p>
+                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Anchors & Proofs</p>
+                <p class="text-3xl font-bold mt-1" id="stat-anchors">-</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">commitments + proofs</p>
             </div>
-            <i class="fas fa-box text-3xl text-purple-500 opacity-20"></i>
+            <i class="fas fa-anchor text-3xl text-purple-500 opacity-20"></i>
         </div>
     </div>
 </div>
@@ -70,6 +71,25 @@
             <canvas id="txTypeChart"></canvas>
         </div>
         <p class="text-xs text-gray-500 dark:text-gray-400 mt-4">Distribution by type</p>
+    </div>
+</div>
+
+<!-- Recent Anchors & Proofs -->
+<div class="card p-6 mb-6">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold">
+            <i class="fas fa-anchor mr-2"></i>Recent Commitments & Proofs
+        </h3>
+        <button onclick="switchTab('anchors')" class="text-sm text-blue-600 hover:underline">
+            View all <i class="fas fa-arrow-right ml-1"></i>
+        </button>
+    </div>
+    <div id="recent-anchors" class="space-y-3">
+        <div class="text-gray-600 dark:text-gray-400 text-center py-4">
+            <i class="fas fa-spinner fa-spin"></i>
+            <br/>
+            <span class="text-xs mt-1">Loading anchors...</span>
+        </div>
     </div>
 </div>
 

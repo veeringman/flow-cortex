@@ -8,6 +8,7 @@ use axum::{
 };
 use askama::Template;
 use tower_http::services::ServeDir;
+use tower_http::set_header::SetResponseHeaderLayer;
 
 #[derive(Template)]
 #[template(path = "index.html")]
@@ -85,7 +86,14 @@ async fn main() {
     let app = Router::new()
         .route("/", get(index))
         .route("/api/{*rest}", axum::routing::any(api_proxy))
-        .nest_service("/static", ServeDir::new("static"));
+        .nest_service(
+            "/static",
+            ServeDir::new("static").precompressed_gzip(),
+        )
+        .layer(SetResponseHeaderLayer::overriding(
+            axum::http::header::CACHE_CONTROL,
+            axum::http::HeaderValue::from_static("no-cache, must-revalidate"),
+        ));
 
     let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:4000".to_string());
 

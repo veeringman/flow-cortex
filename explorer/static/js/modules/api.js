@@ -135,15 +135,19 @@ export const CapsuleAPI = {
 };
 
 /**
- * Anchor API
+ * Anchor & Proof API
  */
 export const AnchorAPI = {
     async list() {
-        return apiCall('/anchors');
+        return apiCall('/events');
     },
-    
+
     async get(id) {
-        return apiCall(`/anchor/${encodeURIComponent(id)}`);
+        return apiCall(`/commitment/${encodeURIComponent(id)}`);
+    },
+
+    async stats() {
+        return apiCall('/stats');
     }
 };
 

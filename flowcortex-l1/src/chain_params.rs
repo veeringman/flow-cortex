@@ -76,12 +76,15 @@ pub const EPOCH_LENGTH_BLOCKS: u64 = 100;
 
 // ─── Assets ───────────────────────────────────────────────────────────────
 
-// ── PROOF (native utility token) ──
+// ── PROOF (native coin of FlowCortex Network) ──
 
 pub const PROOF_SYMBOL: &str = "PROOF";
-pub const PROOF_NAME: &str = "Proof Token";
+pub const PROOF_NAME: &str = "PROOF";
 /// Decimal precision: 6 (amounts stored as micro-PROOF, 1 PROOF = 1_000_000 units).
 pub const PROOF_DECIMALS: u8 = 6;
+/// Total supply minted at TGE (Token Generation Event): 10,000,000,000 PROOF.
+/// In micro-PROOF units (6 decimals): 20_000_000_000 * 1_000_000.
+pub const PROOF_TGE_SUPPLY: u64 = 20_000_000_000_000_000;
 /// Minimum indivisible transfer unit (1 micro-PROOF).
 pub const PROOF_MIN_TRANSFER_UNIT: u64 = 1;
 /// PROOF is not used for fee payment in MVP (no fee model).
@@ -94,11 +97,12 @@ pub const FLOWER_SYMBOL: &str = "FloweR";
 pub const FLOWER_NAME: &str = "Flow Rupee";
 /// Decimal precision: 6 (amounts stored as micro-FloweR, 1 FloweR = 1_000_000 units).
 pub const FLOWER_DECIMALS: u8 = 6;
-/// Minimum indivisible transfer unit (1 micro-FloweR = $0.000001).
+/// Minimum indivisible transfer unit (1 micro-FloweR = ₹0.000001).
 pub const FLOWER_MIN_TRANSFER_UNIT: u64 = 1;
-/// FloweR is a native stablecoin on FlowCortex L1 (not a contract/module token).
+/// FloweR is a native INR-pegged stablecoin on FlowCortex L1 (minted on demand, 1 FloweR = ₹1).
 pub const FLOWER_TYPE: &str = "native-stablecoin";
 /// Minting authority: only approved settlement banks via /bank/approve API.
+/// Each mint requires an equal INR reserve backing.
 pub const FLOWER_MINT_BURN_AUTHORITY: &str = "settlement-banks-only";
 /// Pause/freeze supported: yes (freeze_token / unfreeze_token in Ledger).
 pub const FLOWER_PAUSE_FREEZE_SUPPORTED: bool = true;

@@ -40,7 +40,7 @@ pub enum TokenStatus {
 pub struct TokenMetadata {
     /// Token symbol ("FLOWER", "PROOF", "USDC")
     pub symbol: String,
-    /// Display name ("Flow Dollar", "Proof Token", "USD Coin")
+    /// Display name ("Flow Rupee", "PROOF", "USD Coin")
     pub name: String,
     /// Decimal places for amounts (6 for stablecoins, 0 for native)
     pub decimals: u8,

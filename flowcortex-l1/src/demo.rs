@@ -148,7 +148,7 @@ impl Default for FloweRStablecoinConfig {
     fn default() -> Self {
         FloweRStablecoinConfig {
             symbol: "FLOWER".to_string(),
-            name: "FloweR Stablecoin".to_string(),
+            name: "Flow Rupee".to_string(),
             total_supply: 250_000_000_000_000,  // 250M with 6 decimals
             decimals: 6,
             mint_authority: "fortress_digital".to_string(),

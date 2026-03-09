@@ -16,9 +16,17 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use base64::Engine;
+use sha2::{Digest, Sha256};
 
 /// Shared application state for handlers
 pub type SharedNode = Arc<Mutex<Node>>;
+
+/// Compute SHA-256 hash of serializable data, returned as hex string
+fn compute_hash<T: Serialize>(data: &T) -> String {
+    let json = serde_json::to_vec(data).unwrap_or_default();
+    let hash = Sha256::digest(&json);
+    hex::encode(hash)
+}
 
 #[derive(Deserialize)]
 struct AccountRequest {
@@ -80,9 +88,38 @@ struct ErrorResponse {
 }
 
 #[derive(Serialize)]
+struct TxResponse {
+    tx_hash: String,
+    kind: crate::types::TransactionKind,
+    #[serde(default)]
+    rw_set: crate::types::ReadWriteSet,
+    has_proof: bool,
+}
+
+#[derive(Serialize)]
 struct BlockResponse {
     height: u64,
-    transactions: Vec<crate::types::Transaction>,
+    block_hash: String,
+    tx_count: usize,
+    transactions: Vec<TxResponse>,
+}
+
+fn build_block_response(b: &crate::types::Block) -> BlockResponse {
+    let txs: Vec<TxResponse> = b.transactions.iter().map(|tx| {
+        TxResponse {
+            tx_hash: compute_hash(&tx.kind),
+            kind: tx.kind.clone(),
+            has_proof: tx.proof.is_some(),
+            rw_set: tx.rw_set.clone(),
+        }
+    }).collect();
+    let block_hash = compute_hash(b);
+    BlockResponse {
+        height: b.height,
+        block_hash,
+        tx_count: txs.len(),
+        transactions: txs,
+    }
 }
 
 #[derive(Serialize)]
@@ -524,10 +561,7 @@ async fn create_block(Extension(node): Extension<SharedNode>) -> impl IntoRespon
     let mut n = node.lock().unwrap();
     let block = n.create_block();
     let _ = n.save("node_state.json");
-    Json(BlockResponse {
-        height: block.height,
-        transactions: block.transactions,
-    })
+    Json(build_block_response(&block))
 }
 
 async fn list_blocks(Extension(node): Extension<SharedNode>) -> impl IntoResponse {
@@ -535,12 +569,151 @@ async fn list_blocks(Extension(node): Extension<SharedNode>) -> impl IntoRespons
     let resp: Vec<BlockResponse> = n
         .blocks
         .iter()
-        .map(|b| BlockResponse {
-            height: b.height,
-            transactions: b.transactions.clone(),
-        })
+        .map(|b| build_block_response(b))
         .collect();
     Json(resp)
+}
+
+async fn get_block(
+    Extension(node): Extension<SharedNode>,
+    Path(height): Path<u64>,
+) -> impl IntoResponse {
+    let n = node.lock().unwrap();
+    if height == 0 || height as usize > n.blocks.len() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": format!("Block {} not found", height) })),
+        ).into_response();
+    }
+    let block = &n.blocks[(height - 1) as usize];
+    let tx_summaries: Vec<serde_json::Value> = block.transactions.iter().enumerate().map(|(i, tx)| {
+        let kind = &tx.kind;
+        let (tx_type, from, to, token, amount) = match kind {
+            crate::types::TransactionKind::Mint { to, token, amount } =>
+                ("Mint", "".to_string(), to.clone(), token.clone(), *amount),
+            crate::types::TransactionKind::Transfer { from, to, token, amount } =>
+                ("Transfer", from.clone(), to.clone(), token.clone(), *amount),
+            crate::types::TransactionKind::Burn { token, from, amount } =>
+                ("Burn", from.clone(), "".to_string(), token.clone(), *amount),
+            crate::types::TransactionKind::CreateToken { symbol, name, .. } =>
+                ("CreateToken", "".to_string(), "".to_string(), symbol.clone(), 0),
+            crate::types::TransactionKind::SettlementMint { token, to, amount, .. } =>
+                ("SettlementMint", "".to_string(), to.clone(), token.clone(), *amount),
+            crate::types::TransactionKind::SettlementBurn { token, from, amount, .. } =>
+                ("SettlementBurn", from.clone(), "".to_string(), token.clone(), *amount),
+            crate::types::TransactionKind::SettlementTransfer { token, from, to, amount, .. } =>
+                ("SettlementTransfer", from.clone(), to.clone(), token.clone(), *amount),
+            crate::types::TransactionKind::UploadCapsule { id, .. } =>
+                ("UploadCapsule", "".to_string(), "".to_string(), id.clone(), 0),
+            crate::types::TransactionKind::ExecuteCapsule { id, .. } =>
+                ("ExecuteCapsule", "".to_string(), "".to_string(), id.clone(), 0),
+            crate::types::TransactionKind::AnchorProof { id, .. } =>
+                ("AnchorProof", "".to_string(), "".to_string(), id.clone(), 0),
+            crate::types::TransactionKind::Trade { from, to, .. } =>
+                ("Trade", from.clone(), to.clone(), "".to_string(), 0),
+            crate::types::TransactionKind::FreezeToken { token } =>
+                ("FreezeToken", "".to_string(), "".to_string(), token.clone(), 0),
+            crate::types::TransactionKind::UnfreezeToken { token } =>
+                ("UnfreezeToken", "".to_string(), "".to_string(), token.clone(), 0),
+        };
+        serde_json::json!({
+            "index": i,
+            "tx_hash": compute_hash(&tx.kind),
+            "type": tx_type,
+            "from": from,
+            "to": to,
+            "token": token,
+            "amount": amount,
+            "has_proof": tx.proof.is_some(),
+            "raw": tx,
+        })
+    }).collect();
+    Json(serde_json::json!({
+        "height": block.height,
+        "block_hash": compute_hash(block),
+        "tx_count": block.transactions.len(),
+        "transactions": tx_summaries,
+    })).into_response()
+}
+
+async fn get_block_tx(
+    Extension(node): Extension<SharedNode>,
+    Path((height, index)): Path<(u64, usize)>,
+) -> impl IntoResponse {
+    let n = node.lock().unwrap();
+    if height == 0 || height as usize > n.blocks.len() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": format!("Block {} not found", height) })),
+        ).into_response();
+    }
+    let block = &n.blocks[(height - 1) as usize];
+    if index >= block.transactions.len() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": format!("Transaction index {} not found in block {}", index, height) })),
+        ).into_response();
+    }
+    let tx = &block.transactions[index];
+    Json(serde_json::json!({
+        "block_height": height,
+        "index": index,
+        "kind": tx.kind,
+        "rw_set": tx.rw_set,
+        "proof": tx.proof,
+    })).into_response()
+}
+
+async fn get_account(
+    Extension(node): Extension<SharedNode>,
+    Path(account_id): Path<String>,
+) -> impl IntoResponse {
+    let n = node.lock().unwrap();
+    // Get all token balances for this account
+    let balances: Vec<serde_json::Value> = n.ledger.get_all_balances(&account_id)
+        .into_iter()
+        .map(|(token, amount)| serde_json::json!({ "token": token, "amount": amount }))
+        .collect();
+    // Collect transaction history from all blocks
+    let mut tx_history: Vec<serde_json::Value> = Vec::new();
+    for block in &n.blocks {
+        for (i, tx) in block.transactions.iter().enumerate() {
+            let involves = match &tx.kind {
+                crate::types::TransactionKind::Mint { to, .. } => *to == account_id,
+                crate::types::TransactionKind::Transfer { from, to, .. } => *from == account_id || *to == account_id,
+                crate::types::TransactionKind::Burn { from, .. } => *from == account_id,
+                crate::types::TransactionKind::SettlementMint { to, .. } => *to == account_id,
+                crate::types::TransactionKind::SettlementBurn { from, .. } => *from == account_id,
+                crate::types::TransactionKind::SettlementTransfer { from, to, .. } => *from == account_id || *to == account_id,
+                crate::types::TransactionKind::Trade { from, to, .. } => *from == account_id || *to == account_id,
+                _ => false,
+            };
+            if involves {
+                let kind_name = match &tx.kind {
+                    crate::types::TransactionKind::Mint { .. } => "Mint",
+                    crate::types::TransactionKind::Transfer { .. } => "Transfer",
+                    crate::types::TransactionKind::Burn { .. } => "Burn",
+                    crate::types::TransactionKind::SettlementMint { .. } => "SettlementMint",
+                    crate::types::TransactionKind::SettlementBurn { .. } => "SettlementBurn",
+                    crate::types::TransactionKind::SettlementTransfer { .. } => "SettlementTransfer",
+                    crate::types::TransactionKind::Trade { .. } => "Trade",
+                    _ => "Other",
+                };
+                tx_history.push(serde_json::json!({
+                    "block_height": block.height,
+                    "tx_index": i,
+                    "type": kind_name,
+                    "kind": tx.kind,
+                }));
+            }
+        }
+    }
+    Json(serde_json::json!({
+        "account": account_id,
+        "balances": balances,
+        "tx_count": tx_history.len(),
+        "transactions": tx_history,
+    })).into_response()
 }
 
 async fn snapshot(Extension(node): Extension<SharedNode>) -> impl IntoResponse {
@@ -935,8 +1108,21 @@ async fn settlement_transfer(
     Json(req): Json<SettlementTransferRequest>,
 ) -> impl IntoResponse {
     let mut n = node.lock().unwrap();
-    match n.ledger.settlement_transfer(&req.from, &req.to, &req.token, req.amount, req.reference.clone()) {
+    let tx = Transaction {
+        kind: TransactionKind::SettlementTransfer {
+            token: req.token.clone(),
+            from: req.from.clone(),
+            to: req.to.clone(),
+            amount: req.amount,
+            reference: req.reference.clone(),
+            metadata: req.metadata.clone(),
+        },
+        rw_set: ReadWriteSet::default(),
+        proof: None,
+    };
+    match n.submit_transaction(&req.from, tx) {
         Ok(()) => {
+            n.create_block();
             let _ = n.save("node_state.json");
             (
                 StatusCode::OK,
@@ -1091,7 +1277,10 @@ pub fn make_router(node: SharedNode) -> Router {
         .route("/token/{symbol}", get(get_token))
         .route("/pool", get(get_pool))
         .route("/block", post(create_block))
+        .route("/block/{height}", get(get_block))
+        .route("/block/{height}/tx/{index}", get(get_block_tx))
         .route("/blocks", get(list_blocks))
+        .route("/account/{id}", get(get_account))
         .route("/snapshot", get(snapshot))
         // generic transaction submission
         .route("/tx", post(submit_tx))

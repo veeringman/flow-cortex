@@ -28,7 +28,7 @@ message AnchorResponse { string id = 1; string proof_base64 = 2; string error = 
 
 message TokenMetadata {
     string symbol = 1;              // "FLOWER", "USDC", "PROOF"
-    string name = 2;                // "Flow Dollar", "USD Coin"
+    string name = 2;                // "Flow Rupee", "USD Coin"
     uint32 decimals = 3;            // 6 for stablecoins, 0 for native
     uint64 total_supply = 4;        // Total minted tokens
     string creator = 5;             // Treasury/issuer account

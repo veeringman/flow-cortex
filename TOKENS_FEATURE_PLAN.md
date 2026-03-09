@@ -260,7 +260,7 @@ Ledger updates balances
 ├─────────────────────────────────────────┤
 │ Symbol │ Name        │ Supply │ Created │
 ├─────────────────────────────────────────┤
-│ PROOF  │ Proof Token │ ∞      │ System  │
+│ PROOF  │ PROOF       │ 20B    │ TGE     │
 │ FLOWER │ FloweCoin   │ 1M     │ System  │
 │ USDC   │ Stable USD  │ 1B     │ admin   │
 │ XFLOW  │ Flow Token  │ 10M    │ alice   │
@@ -398,10 +398,10 @@ impl Ledger {
         
         // Create built-in tokens
         ledger.tokens.insert("proof".to_string(), TokenMetadata {
-            name: "Proof Token".to_string(),
+            name: "PROOF".to_string(),
             symbol: "PROOF".to_string(),
             decimals: 0,
-            total_supply: 0, // Can mint more
+            total_supply: 20_000_000_000, // Minted once at TGE
             creator: admin.clone(),
         });
         
