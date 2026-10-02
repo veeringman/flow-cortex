@@ -29,3 +29,6 @@ target
 # Runtime state files
 *.log
 **/node_state.json
+
+# EC2 deploy secrets
+deploy/ec2/host.env

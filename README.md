@@ -122,6 +122,25 @@ curl http://192.168.29.78:3000/tokens
 
 ---
 
+## EC2 deploy (R&D host)
+
+Deploy L1 + Explorer to the same EC2 as eGenie / WiseEars (`100.52.147.238`):
+
+```bash
+cp deploy/ec2/host.env.example deploy/ec2/host.env
+chmod +x deploy/ec2/deploy-flowcortex.sh
+./deploy/ec2/deploy-flowcortex.sh
+```
+
+| URL | Purpose |
+| --- | --- |
+| `https://flowcortex.veerlabs.solutions` | Explorer UI |
+| `https://flowcortex-api.veerlabs.solutions` | L1 REST API |
+
+See [deploy/ec2/README.md](deploy/ec2/README.md) for ports, DNS, and LAN build options.
+
+---
+
 ## REST API Routes (L1 Node — port 3000)
 
 ### Core Ledger
